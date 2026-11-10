@@ -1,0 +1,10 @@
+# Force LF line endings for all text files so shell scripts work inside Linux containers
+* text=auto eol=lf
+
+# Treat these explicitly as binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff2 binary
+*.woff binary
+

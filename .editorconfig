@@ -1,0 +1,38 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# C# files
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# TypeScript / TSX / JavaScript / JSX
+[*.{ts,tsx,js,jsx}]
+indent_style = space
+indent_size = 2
+
+# JSON
+[*.json]
+indent_style = space
+indent_size = 2
+
+# YAML / Docker Compose
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# XML / project files
+[*.{csproj,sln,xml,props}]
+indent_style = space
+indent_size = 2
+
+# Shell scripts (run inside Linux containers)
+[*.sh]
+indent_style = space
+indent_size = 2
+
