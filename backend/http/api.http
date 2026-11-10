@@ -1,0 +1,293 @@
+### Variables
+@baseUrl = http://localhost:8080
+
+# ==============================================================================
+# Health Check
+# ==============================================================================
+
+### Health Endpoint
+GET {{baseUrl}}/health
+Accept: application/json
+
+# ==============================================================================
+# A1: POST /classes (Create Class)
+# ==============================================================================
+
+### A1: Create Class - Happy Path
+# @name createClass
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Morning Shift",
+  "totalSeats": 40
+}
+
+### A1: Create Class - Missing Name (400 VALIDATION_ERROR)
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "totalSeats": 40
+}
+
+### A1: Create Class - Name Over 100 Characters (400 VALIDATION_ERROR)
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "name": "This is an excessively long class name that strictly exceeds one hundred characters in total length for testing",
+  "totalSeats": 40
+}
+
+### A1: Create Class - totalSeats Zero (400 VALIDATION_ERROR)
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Day Shift",
+  "totalSeats": 0
+}
+
+### A1: Create Class - totalSeats Exceeds 10000 (400 VALIDATION_ERROR)
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Day Shift",
+  "totalSeats": 10001
+}
+
+### A1: Create Class - totalSeats as String (400 VALIDATION_ERROR)
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Day Shift",
+  "totalSeats": "12"
+}
+
+### A1: Create Class - totalSeats as Decimal (400 VALIDATION_ERROR)
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Day Shift",
+  "totalSeats": 12.5
+}
+
+### A1: Create Class - Malformed JSON (400 VALIDATION_ERROR)
+POST {{baseUrl}}/classes
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Day Shift",
+  "totalSeats": 
+
+# ==============================================================================
+# A2: GET /classes (List Classes)
+# ==============================================================================
+
+### A2: List Classes - Happy Path
+GET {{baseUrl}}/classes
+Accept: application/json
+
+# ==============================================================================
+# A3: GET /classes/{classId} (Get Class by ID)
+# ==============================================================================
+
+### A3: Get Class - Happy Path (replace with real id or from response)
+@sampleClassId = {{createClass.response.body.id}}
+GET {{baseUrl}}/classes/{{sampleClassId}}
+Accept: application/json
+
+### A3: Get Class - Unknown ID (404 NOT_FOUND)
+GET {{baseUrl}}/classes/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+### A3: Get Class - Malformed ID (404 NOT_FOUND)
+GET {{baseUrl}}/classes/not-a-valid-uuid
+Accept: application/json
+
+# ==============================================================================
+# A9: PUT /classes/{classId} (Edit Class)
+# ==============================================================================
+
+### A9: Edit Class - Increase Total Seats (Happy Path)
+PUT {{baseUrl}}/classes/{{sampleClassId}}
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Morning Shift (Updated)",
+  "totalSeats": 50
+}
+
+### A9: Edit Class - Missing Name (400 VALIDATION_ERROR)
+PUT {{baseUrl}}/classes/{{sampleClassId}}
+Content-Type: application/json
+
+{
+  "totalSeats": 50
+}
+
+### A9: Edit Class - Unknown ID (404 NOT_FOUND)
+PUT {{baseUrl}}/classes/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Morning",
+  "totalSeats": 50
+}
+
+### A9: Edit Class - Malformed ID (404 NOT_FOUND)
+PUT {{baseUrl}}/classes/not-a-valid-uuid
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Morning",
+  "totalSeats": 50
+}
+
+# ==============================================================================
+# A4: POST /classes/{classId}/holds (Create Hold)
+# ==============================================================================
+
+### A4: Create Hold - Happy Path (201 Created)
+# @name createHold
+POST {{baseUrl}}/classes/{{sampleClassId}}/holds
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A4: Create Hold - Missing X-Student-Id Header (400 INVALID_STUDENT_ID)
+POST {{baseUrl}}/classes/{{sampleClassId}}/holds
+Accept: application/json
+
+### A4: Create Hold - Invalid X-Student-Id (16 digits) (400 INVALID_STUDENT_ID)
+POST {{baseUrl}}/classes/{{sampleClassId}}/holds
+X-Student-Id: 1234567890123456
+Accept: application/json
+
+### A4: Create Hold - Invalid X-Student-Id (non-numeric) (400 INVALID_STUDENT_ID)
+POST {{baseUrl}}/classes/{{sampleClassId}}/holds
+X-Student-Id: 2008123456789012a
+Accept: application/json
+
+### A4: Create Hold - Unknown Class ID (404 NOT_FOUND)
+POST {{baseUrl}}/classes/00000000-0000-0000-0000-000000000000/holds
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A4: Create Hold - Malformed Class ID (404 NOT_FOUND)
+POST {{baseUrl}}/classes/not-a-valid-uuid/holds
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A4: Create Hold - Already Applied in Class (409 ALREADY_APPLIED_IN_CLASS)
+POST {{baseUrl}}/classes/{{sampleClassId}}/holds
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+# ==============================================================================
+# A5: GET /holds/{holdId} (Get Hold Details)
+# ==============================================================================
+
+### A5: Get Hold - Happy Path
+@sampleHoldId = {{createHold.response.body.holdId}}
+GET {{baseUrl}}/holds/{{sampleHoldId}}
+Accept: application/json
+
+### A5: Get Hold - Unknown ID (404 NOT_FOUND)
+GET {{baseUrl}}/holds/00000000-0000-0000-0000-000000000000
+Accept: application/json
+
+### A5: Get Hold - Malformed ID (404 NOT_FOUND)
+GET {{baseUrl}}/holds/not-a-valid-uuid
+Accept: application/json
+
+# ==============================================================================
+# A6: POST /holds/{holdId}/confirm (Confirm Hold)
+# ==============================================================================
+
+### A6: Confirm Hold - Happy Path (200 OK)
+POST {{baseUrl}}/holds/{{sampleHoldId}}/confirm
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A6: Confirm Hold - Repeated Confirm (Idempotent 200 OK)
+POST {{baseUrl}}/holds/{{sampleHoldId}}/confirm
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A6: Confirm Hold - Missing Header (400 INVALID_STUDENT_ID)
+POST {{baseUrl}}/holds/{{sampleHoldId}}/confirm
+Accept: application/json
+
+### A6: Confirm Hold - Other Student's Hold (404 NOT_FOUND)
+POST {{baseUrl}}/holds/{{sampleHoldId}}/confirm
+X-Student-Id: 99999999999999999
+Accept: application/json
+
+### A6: Confirm Hold - Unknown ID (404 NOT_FOUND)
+POST {{baseUrl}}/holds/00000000-0000-0000-0000-000000000000/confirm
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+# ==============================================================================
+# A7: DELETE /holds/{holdId} (Cancel Hold)
+# ==============================================================================
+
+### A7: Cancel Hold - Happy Path (204 No Content)
+DELETE {{baseUrl}}/holds/{{sampleHoldId}}
+X-Student-Id: 20081234567890123
+
+### A7: Cancel Hold - Repeated Cancel (Idempotent 204 No Content)
+DELETE {{baseUrl}}/holds/{{sampleHoldId}}
+X-Student-Id: 20081234567890123
+
+### A7: Cancel Hold - Missing Header (400 INVALID_STUDENT_ID)
+DELETE {{baseUrl}}/holds/{{sampleHoldId}}
+
+### A7: Cancel Hold - Other Student's Hold (404 NOT_FOUND)
+DELETE {{baseUrl}}/holds/{{sampleHoldId}}
+X-Student-Id: 99999999999999999
+
+### A7: Cancel Hold - Confirmed Hold (409 HOLD_ALREADY_CONFIRMED)
+DELETE {{baseUrl}}/holds/{{sampleHoldId}}
+X-Student-Id: 20081234567890123
+
+# ==============================================================================
+# A8: GET /me/holds (List Student's Holds)
+# ==============================================================================
+
+### A8: Get My Holds - Happy Path (200 OK)
+GET {{baseUrl}}/me/holds
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A8: Get My Holds - Missing Header (400 INVALID_STUDENT_ID)
+GET {{baseUrl}}/me/holds
+Accept: application/json
+
+### A8: Get My Holds - Invalid Header (400 INVALID_STUDENT_ID)
+GET {{baseUrl}}/me/holds
+X-Student-Id: 12345
+Accept: application/json
+
+# ==============================================================================
+# Cross-Cutting Errors
+# ==============================================================================
+
+### Unknown Route (404 NOT_FOUND)
+GET {{baseUrl}}/non-existent-endpoint
+Accept: application/json
+
+### Method Not Allowed (405 METHOD_NOT_ALLOWED)
+DELETE {{baseUrl}}/classes
+Accept: application/json
+
+### Unsupported Media Type (415 UNSUPPORTED_MEDIA_TYPE)
+POST {{baseUrl}}/classes
+Content-Type: text/plain
+
+Hello world
+
