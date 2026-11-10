@@ -2,6 +2,7 @@ services:
 
   db:
     image: postgres:16
+    command: ["postgres", "-c", "max_connections=200"]
     environment:
       POSTGRES_DB:       ${POSTGRES_DB:-admission_db}
       POSTGRES_USER:     ${POSTGRES_USER:-admission_user}
@@ -26,9 +27,11 @@ services:
     environment:
       ASPNETCORE_URLS:          "http://+:8080"
       ConnectionStrings__Default: >-
-        Host=db;Port=5432;Database=${POSTGRES_DB:-admission_db};Username=${POSTGRES_USER:-admission_user};Password=${POSTGRES_PASSWORD:-admission_pass}
-      HOLD_DURATION_SECONDS:    ${HOLD_DURATION_SECONDS:-600}
-      Cors__AllowedOrigins:     ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+        Host=db;Port=5432;Database=${POSTGRES_DB:-admission_db};Username=${POSTGRES_USER:-admission_user};Password=${POSTGRES_PASSWORD:-admission_pass};Maximum Pool Size=50;Timeout=30;Command Timeout=30
+      HOLD_DURATION_SECONDS:        ${HOLD_DURATION_SECONDS:-600}
+      EXPIRY_WORKER_ENABLED:        ${EXPIRY_WORKER_ENABLED:-true}
+      EXPIRY_INTERVAL_MILLISECONDS: ${EXPIRY_INTERVAL_MILLISECONDS:-1000}
+      Cors__AllowedOrigins:         ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
     depends_on:
       db:
         condition: service_healthy
@@ -48,4 +51,3 @@ services:
 
 volumes:
   pgdata:
-
