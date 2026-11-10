@@ -1,0 +1,51 @@
+services:
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-admission_db}
+      POSTGRES_USER:     ${POSTGRES_USER:-admission_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admission_pass}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admission_user} -d ${POSTGRES_DB:-admission_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    # Port 5432 is intentionally NOT published to the host.
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_URLS:          "http://+:8080"
+      ConnectionStrings__Default: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB:-admission_db};Username=${POSTGRES_USER:-admission_user};Password=${POSTGRES_PASSWORD:-admission_pass}
+      HOLD_DURATION_SECONDS:    ${HOLD_DURATION_SECONDS:-600}
+      Cors__AllowedOrigins:     ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    environment:
+      API_URL: ${API_URL:-http://localhost:8080}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+
