@@ -1,0 +1,15 @@
+# Build artifacts
+bin/
+obj/
+
+# Test projects (not included in the image)
+tests/
+
+# IDE
+.vs/
+*.user
+
+# OS
+.DS_Store
+Thumbs.db
+
