@@ -24,10 +24,18 @@ RUN dotnet publish src/SchoolAdmission.Api/SchoolAdmission.Api.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 WORKDIR /app
 
+# Install curl for container healthcheck
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
 COPY --from=build /app .
+
+HEALTHCHECK --interval=5s --timeout=5s --retries=10 --start-period=10s \
+  CMD curl -f http://localhost:8080/health || exit 1
 
 ENTRYPOINT ["dotnet", "SchoolAdmission.Api.dll"]
 

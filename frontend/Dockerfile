@@ -28,3 +28,6 @@ RUN chmod +x /docker-entrypoint.d/40-runtime-config.sh
 
 EXPOSE 80
 
+HEALTHCHECK --interval=5s --timeout=5s --retries=10 --start-period=5s \
+  CMD wget -q --spider http://127.0.0.1:80/ || exit 1
+

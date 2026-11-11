@@ -148,6 +148,16 @@ Content-Type: application/json
   "totalSeats": 50
 }
 
+### A9: Edit Class - Total Seats Below Occupied (409 TOTAL_SEATS_BELOW_OCCUPIED)
+# Assumes occupied seats (held + confirmed) > 1; reducing totalSeats below occupied returns 409
+PUT {{baseUrl}}/classes/{{sampleClassId}}
+Content-Type: application/json
+
+{
+  "name": "Class 6 - Morning Shift",
+  "totalSeats": 1
+}
+
 # ==============================================================================
 # A4: POST /classes/{classId}/holds (Create Hold)
 # ==============================================================================
@@ -185,6 +195,12 @@ Accept: application/json
 ### A4: Create Hold - Already Applied in Class (409 ALREADY_APPLIED_IN_CLASS)
 POST {{baseUrl}}/classes/{{sampleClassId}}/holds
 X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A4: Create Hold - No Seats Available (409 NO_SEATS_AVAILABLE)
+# When all seats in the class are occupied (held + confirmed == totalSeats)
+POST {{baseUrl}}/classes/{{sampleClassId}}/holds
+X-Student-Id: 30081234567890124
 Accept: application/json
 
 # ==============================================================================
@@ -232,6 +248,18 @@ POST {{baseUrl}}/holds/00000000-0000-0000-0000-000000000000/confirm
 X-Student-Id: 20081234567890123
 Accept: application/json
 
+### A6: Confirm Hold - Expired Hold (409 HOLD_EXPIRED)
+# Attempting to confirm a hold after its expiresAt timestamp has passed
+POST {{baseUrl}}/holds/{{sampleHoldId}}/confirm
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A6: Confirm Hold - Cancelled Hold (409 HOLD_NOT_ACTIVE)
+# Attempting to confirm a hold that has already been cancelled
+POST {{baseUrl}}/holds/{{sampleHoldId}}/confirm
+X-Student-Id: 20081234567890123
+Accept: application/json
+
 # ==============================================================================
 # A7: DELETE /holds/{holdId} (Cancel Hold)
 # ==============================================================================
@@ -253,6 +281,15 @@ X-Student-Id: 99999999999999999
 
 ### A7: Cancel Hold - Confirmed Hold (409 HOLD_ALREADY_CONFIRMED)
 DELETE {{baseUrl}}/holds/{{sampleHoldId}}
+X-Student-Id: 20081234567890123
+
+### A7: Cancel Hold - Expired Hold (409 HOLD_EXPIRED)
+# Attempting to cancel a hold after its expiresAt timestamp has passed
+DELETE {{baseUrl}}/holds/{{sampleHoldId}}
+X-Student-Id: 20081234567890123
+
+### A7: Cancel Hold - Malformed ID (404 NOT_FOUND)
+DELETE {{baseUrl}}/holds/not-a-valid-uuid
 X-Student-Id: 20081234567890123
 
 # ==============================================================================
