@@ -1,13 +1,15 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { Banner } from '../../shared/components';
+import { Banner, LanguageToggle } from '../../shared/components';
 import { useServerStatus } from '../../shared/hooks/useServerStatus';
 import { ERROR_MESSAGES } from '../../shared/messages';
+import { useTranslation } from '../../shared/i18n';
 
 export const RootLayout: React.FC = () => {
   const { isDown } = useServerStatus();
   const location = useLocation();
   const isAdmin = location.pathname.startsWith('/admin');
+  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen flex flex-col bg-[#EEEAF6] text-[#241A3F] overflow-x-hidden">
@@ -17,7 +19,7 @@ export const RootLayout: React.FC = () => {
           <div className="max-w-7xl mx-auto">
             <Banner
               variant="error"
-              title="Server connection issue"
+              title={t('server_issue_title')}
               message={ERROR_MESSAGES.NETWORK_ERROR}
               className="py-2"
             />
@@ -34,15 +36,18 @@ export const RootLayout: React.FC = () => {
             </div>
             <div>
               <span className="font-bold text-sm sm:text-lg text-[#241A3F] font-['Poppins'] tracking-tight block leading-tight">
-                School Admission
+                {t('brand_name')}
               </span>
               <span className="text-[10px] sm:text-[11px] text-[#7A7396] font-medium hidden xs:block">
-                Session 2026-2027
+                {t('brand_session')}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Navbar Language Switcher: EN vs বাংলা */}
+            <LanguageToggle />
+
             {/* Top Switcher: Student vs Admin */}
             <div className="neu-inset p-1 flex items-center gap-1 rounded-2xl">
               <NavLink
@@ -56,7 +61,7 @@ export const RootLayout: React.FC = () => {
                   }`
                 }
               >
-                Student
+                {t('nav_student')}
               </NavLink>
 
               <NavLink
@@ -69,7 +74,7 @@ export const RootLayout: React.FC = () => {
                   }`
                 }
               >
-                Admin
+                {t('nav_admin')}
               </NavLink>
             </div>
 
@@ -85,7 +90,7 @@ export const RootLayout: React.FC = () => {
                   }`
                 }
               >
-                Gallery
+                {t('nav_gallery')}
               </NavLink>
             )}
           </div>

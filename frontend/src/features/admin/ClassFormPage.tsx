@@ -17,6 +17,7 @@ import {
   type AdmissionClassDto,
 } from '../../api/admissionApi';
 import { ApiClientError } from '../../api/client';
+import { useTranslation } from '../../shared/i18n';
 
 const KNOWN_SHIFTS = ['Morning Shift', 'Day Shift'] as const;
 type ShiftType = (typeof KNOWN_SHIFTS)[number];
@@ -24,6 +25,7 @@ type ShiftType = (typeof KNOWN_SHIFTS)[number];
 export const ClassFormPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useTranslation();
   const { classId } = useParams<{ classId?: string }>();
   const isEditMode = Boolean(classId);
 
@@ -208,20 +210,18 @@ export const ClassFormPage: React.FC = () => {
               to="/admin/classes"
               className="text-xs font-bold text-[#7A7396] hover:text-[#4B22A6] tracking-wider uppercase font-['Poppins'] transition-colors"
             >
-              Classes
+              {t('nav_admin_manage_classes')}
             </Link>
             <span className="text-xs text-[#7A7396]">/</span>
             <span className="text-xs font-bold text-[#683DD0] tracking-wider uppercase font-['Poppins']">
-              {isEditMode ? 'Edit' : 'Create'}
+              {isEditMode ? t('form_edit_title') : t('form_create_title')}
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold font-['Poppins'] text-[#241A3F]">
-            {isEditMode ? 'Edit Class Shift' : 'Create Class Shift'}
+            {isEditMode ? t('form_edit_title') : t('form_create_title')}
           </h1>
           <p className="text-sm text-[#7A7396] mt-0.5">
-            {isEditMode
-              ? 'Update the class name, shift, and capacity settings.'
-              : 'Add a new class shift for student admission.'}
+            {isEditMode ? t('form_edit_subtitle') : t('form_create_subtitle')}
           </p>
         </div>
       </div>
@@ -244,8 +244,8 @@ export const ClassFormPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
               {/* Class Field */}
               <Input
-                label="Class Name"
-                placeholder="e.g. Class 6, Grade 7"
+                label={t('form_label_class')}
+                placeholder={t('form_placeholder_class')}
                 value={classField}
                 onChange={(e) => {
                   setClassField(e.target.value);
@@ -264,7 +264,7 @@ export const ClassFormPage: React.FC = () => {
                   htmlFor="shift-select"
                   className="text-sm font-semibold text-[#241A3F] pl-1 font-['Poppins']"
                 >
-                  Shift
+                  {t('form_label_shift')}
                 </label>
                 <div className="relative">
                   <select
@@ -275,7 +275,7 @@ export const ClassFormPage: React.FC = () => {
                   >
                     {KNOWN_SHIFTS.map((s) => (
                       <option key={s} value={s} className="text-[#241A3F] bg-[#EEEAF6]">
-                        {s}
+                        {s === 'Morning Shift' ? t('shift_morning') : t('shift_day')}
                       </option>
                     ))}
                   </select>
@@ -286,13 +286,13 @@ export const ClassFormPage: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-xs text-[#7A7396] pl-1">
-                  Class name will be composed as: <strong className="text-[#4B22A6]">{composedName || '<Class> - <Shift>'}</strong>
+                  Class name: <strong className="text-[#4B22A6]">{composedName || '<Class> - <Shift>'}</strong>
                 </p>
               </div>
 
               {/* Total Seats Field */}
               <Input
-                label="Total Seats"
+                label={t('form_label_total_seats')}
                 type="number"
                 min="1"
                 max="10000"
@@ -309,7 +309,7 @@ export const ClassFormPage: React.FC = () => {
                 helperText={
                   isEditMode
                     ? `Minimum allowed: ${existingOccupied} seats (${existingHeld} held + ${existingConfirmed} confirmed)`
-                    : 'Integer capacity between 1 and 10,000'
+                    : t('form_seats_help')
                 }
               />
 
@@ -321,7 +321,7 @@ export const ClassFormPage: React.FC = () => {
                   isLoading={isSubmitting}
                   className="min-w-[130px]"
                 >
-                  {isEditMode ? 'Save changes' : 'Create class'}
+                  {isEditMode ? t('form_btn_update') : t('form_btn_create')}
                 </Button>
 
                 <Button
@@ -330,7 +330,7 @@ export const ClassFormPage: React.FC = () => {
                   disabled={isSubmitting}
                   onClick={() => navigate('/admin/classes')}
                 >
-                  Cancel
+                  {t('form_btn_cancel')}
                 </Button>
               </div>
             </form>
@@ -341,10 +341,10 @@ export const ClassFormPage: React.FC = () => {
         <div className="lg:col-span-5 flex flex-col gap-3">
           <div className="flex items-center justify-between px-1">
             <span className="text-xs font-bold text-[#7A7396] uppercase tracking-wider font-['Poppins']">
-              Live Preview for Parents
+              {t('form_preview_title')}
             </span>
             <span className="text-xs text-[#683DD0] font-semibold bg-[#E4DBF7] px-2 py-0.5 rounded-full">
-              Student View
+              {t('nav_student')}
             </span>
           </div>
 

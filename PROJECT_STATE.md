@@ -18,9 +18,9 @@
 
 ## 1. Snapshot
 
-- Last updated: 2026-11-11 09:18
-- Current phase: Phase 3 (implementation). S19 complete (all sections done).
-- Last finished section: S19 Bonus X1 two-process test (compose profile x1, backend2 on 8081, 1000 parallel holds on 10 seats -> exactly 10 x 201 across both ports, verify.sql clean) and X2 frontend tests (Vitest 5 + RTL, 28 tests passing via npm test)
+- Last updated: 2026-11-11 15:46
+- Current phase: Phase 3 (implementation). S19 complete + Bangla/English i18n switcher implemented.
+- Last finished section: S19 + Bangla/English i18n support (navbar toggle, full UI & error messages in BN/EN, 35 frontend tests passing, 50 backend tests passing)
 - Next section: none planned (only fixes or final review if the user asks)
 - Hard deadline: 2026-11-11 23:59 (Asia/Dhaka assumed). The repository state at the deadline is graded; later commits are ignored. Aim to finish all must-haves by 2026-11-11 18:00.
 
@@ -457,6 +457,7 @@ Every section report ends with: files created or changed; how to run and test; D
 | 2026-11-11 09:00 | S17 | Docker finalisation, volume persistence check, compose tests profile, and comprehensive README.md | backend/Dockerfile, frontend/Dockerfile, frontend/nginx.conf, docker-compose.yml, README.md, PROJECT_STATE.md |
 | 2026-11-11 09:11 | S18 | ASSUMPTIONS.md, AI_USAGE.md, full validation pass (50 backend tests passing, verify.sql clean, 3s expiry verified live, down/up persistence verified), api.http expanded with all 4xx codes, traceability matrix updated | ASSUMPTIONS.md, AI_USAGE.md, backend/http/api.http, PROJECT_STATE.md |
 | 2026-11-11 09:18 | S19 | Bonus X1: compose profile x1 (backend2 on 8081, x1-test runner), two-process script (10 x 201 across ports, verify.sql clean). Bonus X2: Vitest 5 + RTL, 28 frontend tests, npm test. README and ASSUMPTIONS updated | docker-compose.yml, scripts/x1-two-process-test.mjs, frontend/vitest.config.ts, frontend/src/**/*.test.ts(x), frontend/package.json, README.md, ASSUMPTIONS.md |
+| 2026-11-11 15:46 | i18n | Bangla/English live language switcher: navbar toggle button (BN/EN), zero-dependency React context with localStorage persistence, complete UI and error mapping translation, 35 frontend tests passing | frontend/src/shared/i18n.tsx, frontend/src/shared/components/LanguageToggle.tsx, frontend/src/shared/messages.ts, frontend/src/shared/i18n.test.tsx, frontend/src/app/layouts/*, frontend/src/features/**/* |
 
 ## 16. Known issues / TODO
 

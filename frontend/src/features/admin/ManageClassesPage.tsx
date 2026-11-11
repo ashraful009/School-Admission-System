@@ -11,9 +11,11 @@ import {
 } from '../../shared/components';
 import { fetchClasses } from '../../api/admissionApi';
 import type { AdmissionClassDto } from '../../api/admissionApi';
+import { useTranslation } from '../../shared/i18n';
 
 export const ManageClassesPage: React.FC = () => {
   const location = useLocation();
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(
     (location.state as { successMessage?: string })?.successMessage || null
@@ -52,10 +54,10 @@ export const ManageClassesPage: React.FC = () => {
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold font-['Poppins'] text-[#241A3F]">
-            Manage Classes
+            {t('manage_classes_title')}
           </h1>
           <p className="text-sm text-[#7A7396] mt-0.5">
-            Monitor real-time class enrollments and update capacity settings.
+            {t('manage_classes_subtitle')}
           </p>
         </div>
 
@@ -65,7 +67,7 @@ export const ManageClassesPage: React.FC = () => {
               <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
               </svg>
-              Create class
+              {t('manage_btn_new_class')}
             </Button>
           </Link>
         </div>
@@ -168,13 +170,13 @@ export const ManageClassesPage: React.FC = () => {
             <table className="w-full text-left border-collapse min-w-[760px]" data-testid="manage-classes-table">
               <thead>
                 <tr className="border-b border-[#E0D9F0] bg-[#F7F4FC]/80 text-[#7A7396] text-xs uppercase tracking-wider font-semibold font-['Poppins']">
-                  <th className="py-3.5 px-4 sm:px-6">Class Shift</th>
-                  <th className="py-3.5 px-4 text-center">Total</th>
-                  <th className="py-3.5 px-4 text-center">Held</th>
-                  <th className="py-3.5 px-4 text-center">Confirmed</th>
-                  <th className="py-3.5 px-4 text-center font-bold text-[#4B22A6]">Available</th>
-                  <th className="py-3.5 px-4">Filled Bar</th>
-                  <th className="py-3.5 px-4 sm:px-6 text-right">Action</th>
+                  <th className="py-3.5 px-4 sm:px-6">{t('manage_th_class_name')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('manage_th_total')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('manage_th_held')}</th>
+                  <th className="py-3.5 px-4 text-center">{t('manage_th_confirmed')}</th>
+                  <th className="py-3.5 px-4 text-center font-bold text-[#4B22A6]">{t('manage_th_available')}</th>
+                  <th className="py-3.5 px-4">{t('manage_th_occupancy')}</th>
+                  <th className="py-3.5 px-4 sm:px-6 text-right">{t('manage_th_actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E0D9F0]/60 text-sm">

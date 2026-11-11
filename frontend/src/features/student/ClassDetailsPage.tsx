@@ -17,12 +17,14 @@ import {
   type StudentHoldDto,
 } from '../../api/admissionApi';
 import { ApiClientError, getStoredStudentId } from '../../api/client';
+import { useTranslation } from '../../shared/i18n';
 
 export const ClassDetailsPage: React.FC = () => {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const studentId = getStoredStudentId();
+  const { t } = useTranslation();
 
   const [isApplying, setIsApplying] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -162,7 +164,7 @@ export const ClassDetailsPage: React.FC = () => {
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-sm text-[#7A7396] font-medium" aria-label="Breadcrumb">
         <Link to="/" className="hover:text-[#4B22A6] transition-colors">
-          Classes
+          {t('nav_classes')}
         </Link>
         <span className="text-[#A59FBA]">/</span>
         <span className="text-[#241A3F] font-semibold truncate">{classData.name}</span>
@@ -189,7 +191,7 @@ export const ClassDetailsPage: React.FC = () => {
           </span>
         </div>
         <p className="text-sm sm:text-base text-[#7A7396]">
-          First come, first served. A held seat stays yours for {durationMinutes} minutes.
+          {t('details_fcfs_notice', { min: durationMinutes })}
         </p>
       </div>
 
@@ -197,10 +199,10 @@ export const ClassDetailsPage: React.FC = () => {
       <Card padding="md" className="flex flex-col gap-3">
         <div className="flex justify-between items-center text-sm font-semibold text-[#7A7396]">
           <span>
-            <strong className="text-[#241A3F] font-mono">{takenSeats}</strong> of{' '}
-            <strong className="text-[#241A3F] font-mono">{classData.totalSeats}</strong> taken
+            <strong className="text-[#241A3F] font-mono">{takenSeats}</strong> /{' '}
+            <strong className="text-[#241A3F] font-mono">{classData.totalSeats}</strong> {t('label_total')}
           </span>
-          <span className="font-mono text-[#4B22A6]">{occupancyPercent}% full</span>
+          <span className="font-mono text-[#4B22A6]">{occupancyPercent}%</span>
         </div>
 
         <ProgressBar
@@ -213,17 +215,17 @@ export const ClassDetailsPage: React.FC = () => {
         <div className="flex items-center justify-between text-xs text-[#7A7396] pt-1">
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#1D7A4A]" />
-            <span>Confirmed:</span>
+            <span>{t('label_confirmed')}:</span>
             <span className="font-semibold font-mono text-[#241A3F]">{classData.confirmedSeats}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#683DD0]" />
-            <span>Held:</span>
+            <span>{t('label_held')}:</span>
             <span className="font-semibold font-mono text-[#241A3F]">{classData.heldSeats}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#E0D9F0]" />
-            <span>Available:</span>
+            <span>{t('label_available')}:</span>
             <span className="font-semibold font-mono text-[#4B22A6]">{classData.availableSeats}</span>
           </div>
         </div>
@@ -234,7 +236,7 @@ export const ClassDetailsPage: React.FC = () => {
         {/* Total Tile */}
         <Card padding="sm" className="flex flex-col justify-between">
           <span className="text-xs font-semibold uppercase tracking-wider text-[#7A7396]">
-            Total Seats
+            {t('details_tile_total')}
           </span>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-[#241A3F] mt-2">
             {classData.totalSeats}
@@ -245,7 +247,7 @@ export const ClassDetailsPage: React.FC = () => {
         <Card padding="sm" className="flex flex-col justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#7A7396]">
             <span className="w-2 h-2 rounded-full bg-[#683DD0]" />
-            <span>Held</span>
+            <span>{t('label_held')}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-[#683DD0] mt-2">
             {classData.heldSeats}
@@ -256,7 +258,7 @@ export const ClassDetailsPage: React.FC = () => {
         <Card padding="sm" className="flex flex-col justify-between">
           <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-[#7A7396]">
             <span className="w-2 h-2 rounded-full bg-[#1D7A4A]" />
-            <span>Confirmed</span>
+            <span>{t('label_confirmed')}</span>
           </div>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-[#1D7A4A] mt-2">
             {classData.confirmedSeats}
@@ -266,7 +268,7 @@ export const ClassDetailsPage: React.FC = () => {
         {/* Available Tile */}
         <Card padding="sm" className="flex flex-col justify-between bg-gradient-to-br from-[#F7F4FC] to-[#EEEAF6]">
           <span className="text-xs font-semibold uppercase tracking-wider text-[#4B22A6]">
-            Available
+            {t('label_available')}
           </span>
           <div className="text-2xl sm:text-3xl font-bold font-mono text-[#4B22A6] mt-2">
             {classData.availableSeats}
@@ -278,7 +280,7 @@ export const ClassDetailsPage: React.FC = () => {
       <Card padding="lg" className="flex flex-col items-center justify-center text-center gap-6 mt-2">
         <div className="flex flex-col items-center">
           <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-[#7A7396] mb-1">
-            Seats Available Right Now
+            {t('details_big_available')}
           </span>
           <div
             className={`text-6xl sm:text-8xl font-bold font-mono tracking-tight ${
@@ -288,7 +290,7 @@ export const ClassDetailsPage: React.FC = () => {
             {classData.availableSeats}
           </div>
           <span className="text-xs sm:text-sm text-[#7A7396] mt-1">
-            out of {classData.totalSeats} capacity
+            {t('details_big_available_sub')}
           </span>
         </div>
 
@@ -303,7 +305,7 @@ export const ClassDetailsPage: React.FC = () => {
               className="cursor-not-allowed opacity-75"
               title="You already have an active hold or confirmed admission in this class"
             >
-              Already applied
+              {t('btn_already_applied')}
             </Button>
           ) : isSeatsFull ? (
             <Button
@@ -314,7 +316,7 @@ export const ClassDetailsPage: React.FC = () => {
               className="cursor-not-allowed opacity-75"
               title="All seats in this class are currently held or confirmed"
             >
-              Seats full
+              {t('btn_class_full')}
             </Button>
           ) : (
             <Button
@@ -324,13 +326,13 @@ export const ClassDetailsPage: React.FC = () => {
               isLoading={isApplying}
               onClick={handleApply}
             >
-              Apply for this seat
+              {t('details_apply_btn')}
             </Button>
           )}
 
           {/* Text under the button (Mockup Correction 1) */}
           <p className="text-xs sm:text-sm text-[#7A7396] mt-3 font-medium">
-            You can hold one seat per class at a time.
+            {t('details_one_seat_note')}
           </p>
         </div>
       </Card>

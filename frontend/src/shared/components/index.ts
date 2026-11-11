@@ -8,4 +8,5 @@ export * from './Skeleton';
 export * from './EmptyState';
 export * from './CountdownRing';
 export * from './RootErrorBoundary';
+export * from './LanguageToggle';
 

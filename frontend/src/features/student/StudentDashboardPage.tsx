@@ -19,11 +19,13 @@ import {
 } from '../../api/admissionApi';
 import { ApiClientError, getStoredStudentId } from '../../api/client';
 import { useCountdown } from '../../shared/hooks/useCountdown';
+import { useTranslation } from '../../shared/i18n';
 
 export const StudentDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const studentId = getStoredStudentId();
+  const { t } = useTranslation();
 
   const [applyingClassId, setApplyingClassId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -116,10 +118,10 @@ export const StudentDashboardPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold font-['Poppins'] text-[#241A3F]">
-            Welcome to Student Admission
+            {t('dashboard_title')}
           </h1>
           <p className="text-sm sm:text-base text-[#7A7396] mt-1">
-            Choose an admission class below to reserve your seat. Seats are allocated on a first-come, first-served basis.
+            {t('dashboard_subtitle')}
           </p>
         </div>
       </div>
@@ -162,7 +164,7 @@ export const StudentDashboardPage: React.FC = () => {
             <Card padding="md" className="flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-[#7A7396]">
-                  Available Classes
+                  {t('tile_shifts')}
                 </span>
                 <div className="w-9 h-9 rounded-xl bg-[#E4DBF7] flex items-center justify-center text-[#4B22A6]">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -180,7 +182,7 @@ export const StudentDashboardPage: React.FC = () => {
                   {totalClassesCount}
                 </div>
                 <div className="text-xs text-[#7A7396] mt-1">
-                  Active classes open for admission
+                  {t('tile_shifts')}
                 </div>
               </div>
             </Card>
@@ -189,7 +191,7 @@ export const StudentDashboardPage: React.FC = () => {
             <Card padding="md" className="flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-[#7A7396]">
-                  Seats Available
+                  {t('tile_available_seats')}
                 </span>
                 <div className="w-9 h-9 rounded-xl bg-[#D9F0E3] flex items-center justify-center text-[#1D7A4A]">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -207,7 +209,7 @@ export const StudentDashboardPage: React.FC = () => {
                   {totalAvailableSeats}
                 </div>
                 <div className="text-xs text-[#7A7396] mt-1">
-                  Out of {totalCapacitySeats} total seats across all classes
+                  {t('label_total')}: {totalCapacitySeats}
                 </div>
               </div>
             </Card>
@@ -216,12 +218,12 @@ export const StudentDashboardPage: React.FC = () => {
             <Card padding="md" className="flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-[#7A7396]">
-                  Your Active Hold
+                  {t('tile_active_hold')}
                 </span>
                 {soonestHold ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E4DBF7] text-[#4B22A6]">
                     <span className="w-2 h-2 rounded-full bg-[#683DD0] animate-pulse" />
-                    HELD
+                    {t('status_held')}
                   </span>
                 ) : (
                   <div className="w-9 h-9 rounded-xl bg-[#E3DFED] flex items-center justify-center text-[#7A7396]">
@@ -249,7 +251,7 @@ export const StudentDashboardPage: React.FC = () => {
                           to="/my-applications"
                           className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-lg bg-[#EEEAF6] text-[#683DD0] hover:underline"
                         >
-                          +{additionalHoldsCount} more
+                          +{additionalHoldsCount}
                         </Link>
                       )}
                     </div>
@@ -266,13 +268,13 @@ export const StudentDashboardPage: React.FC = () => {
                           <div className="text-lg font-bold font-mono text-[#683DD0] leading-none">
                             {formattedTime}
                           </div>
-                          <span className="text-[11px] text-[#7A7396]">time left</span>
+                          <span className="text-[11px] text-[#7A7396]">{t('hold_time_left')}</span>
                         </div>
                       </div>
 
                       <Link to={`/holds/${soonestHold.holdId}`}>
                         <Button size="sm" variant="primary">
-                          View Hold
+                          {t('active_hold_view_pay')}
                         </Button>
                       </Link>
                     </div>
@@ -280,10 +282,10 @@ export const StudentDashboardPage: React.FC = () => {
                 ) : (
                   <div>
                     <div className="text-xl font-bold font-['Poppins'] text-[#7A7396]">
-                      No active hold
+                      {t('no_active_hold_title')}
                     </div>
                     <div className="text-xs text-[#7A7396] mt-1">
-                      You don't have any running reservations. Select a class below.
+                      {t('no_active_hold_desc')}
                     </div>
                   </div>
                 )}
@@ -297,10 +299,10 @@ export const StudentDashboardPage: React.FC = () => {
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between border-b border-[#E0D9F0] pb-3">
           <h2 className="text-xl font-bold font-['Poppins'] text-[#241A3F]">
-            Admission Classes
+            {t('section_classes_title')}
           </h2>
-          <span className="text-xs text-[#7A7396] font-medium">
-            Auto-refreshes every 5s
+          <span className="text-xs text-[#7A7396] font-medium hidden sm:inline">
+            {t('section_classes_desc')}
           </span>
         </div>
 
@@ -365,11 +367,7 @@ export const StudentDashboardPage: React.FC = () => {
                       >
                         {admissionClass.availableSeats}
                       </span>{' '}
-                      of{' '}
-                      <span className="font-semibold text-[#241A3F]">
-                        {admissionClass.totalSeats}
-                      </span>{' '}
-                      seats available
+                      / {admissionClass.totalSeats} {t('label_available')}
                     </div>
 
                     {/* Seat Capacity Bar (Held + Confirmed + Available) */}
@@ -384,7 +382,7 @@ export const StudentDashboardPage: React.FC = () => {
                     <div className="flex items-center justify-between text-xs text-[#7A7396] pt-1 border-t border-[#E0D9F0]/50">
                       <div className="flex items-center gap-1.5" title="Currently reserved by students">
                         <span className="w-2 h-2 rounded-full bg-[#683DD0]" />
-                        <span>Held:</span>
+                        <span>{t('label_held')}:</span>
                         <span className="font-semibold font-mono text-[#241A3F]">
                           {admissionClass.heldSeats}
                         </span>
@@ -392,7 +390,7 @@ export const StudentDashboardPage: React.FC = () => {
 
                       <div className="flex items-center gap-1.5" title="Paid and confirmed enrollments">
                         <span className="w-2 h-2 rounded-full bg-[#1D7A4A]" />
-                        <span>Confirmed:</span>
+                        <span>{t('label_confirmed')}:</span>
                         <span className="font-semibold font-mono text-[#241A3F]">
                           {admissionClass.confirmedSeats}
                         </span>
@@ -410,7 +408,7 @@ export const StudentDashboardPage: React.FC = () => {
                         className="cursor-not-allowed opacity-75"
                         title="You already have an active hold or confirmed admission in this class"
                       >
-                        Already applied
+                        {t('btn_already_applied')}
                       </Button>
                     ) : isSeatsFull ? (
                       <Button
@@ -420,7 +418,7 @@ export const StudentDashboardPage: React.FC = () => {
                         className="cursor-not-allowed opacity-75"
                         title="All seats in this class are currently held or confirmed"
                       >
-                        Seats full
+                        {t('btn_class_full')}
                       </Button>
                     ) : (
                       <Button
@@ -429,7 +427,7 @@ export const StudentDashboardPage: React.FC = () => {
                         isLoading={isApplying}
                         onClick={() => handleApply(admissionClass.id)}
                       >
-                        Apply now
+                        {t('btn_apply_seat')}
                       </Button>
                     )}
                   </div>

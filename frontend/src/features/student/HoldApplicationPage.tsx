@@ -19,12 +19,14 @@ import {
 import { ApiClientError, getStoredStudentId } from '../../api/client';
 import { useCountdown } from '../../shared/hooks/useCountdown';
 import { formatDateTime } from '../../shared/utils/date';
+import { useTranslation } from '../../shared/i18n';
 
 export const HoldApplicationPage: React.FC = () => {
   const { holdId } = useParams<{ holdId: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const studentId = getStoredStudentId();
+  const { t } = useTranslation();
 
   const [isPaying, setIsPaying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -236,21 +238,21 @@ export const HoldApplicationPage: React.FC = () => {
               }`}
             >
               {effectiveStatus === 'CONFIRMED'
-                ? 'Enrolled'
+                ? t('status_confirmed')
                 : effectiveStatus === 'EXPIRED'
-                ? 'Time Out'
+                ? t('status_expired')
                 : effectiveStatus === 'CANCELLED'
-                ? 'Cancelled'
-                : 'Seat Reserved'}
+                ? t('status_cancelled')
+                : t('status_held')}
             </span>
             <h1 className="text-xl sm:text-2xl font-bold font-['Poppins'] text-[#241A3F]">
               {effectiveStatus === 'CONFIRMED'
-                ? 'Admission Confirmed'
+                ? t('hold_confirmed_banner_title')
                 : effectiveStatus === 'EXPIRED'
-                ? 'Seat Hold Expired'
+                ? t('hold_expired_banner_title')
                 : effectiveStatus === 'CANCELLED'
-                ? 'Application Cancelled'
-                : 'Seat Hold Active'}
+                ? t('hold_cancelled_banner_title')
+                : t('hold_title')}
             </h1>
           </div>
           <Pill status={effectiveStatus} />
@@ -270,24 +272,24 @@ export const HoldApplicationPage: React.FC = () => {
         {effectiveStatus === 'EXPIRED' && (
           <Banner
             variant="error"
-            title="Your seat hold has expired"
-            message="The hold window elapsed before payment was completed. The seat has automatically returned to the class pool."
+            title={t('hold_expired_banner_title')}
+            message={t('hold_expired_banner_desc')}
           />
         )}
 
         {effectiveStatus === 'CONFIRMED' && (
           <Banner
             variant="success"
-            title="Admission Confirmed!"
-            message={`Your admission fee has been recorded and your seat is permanently confirmed for ${hold.className}.`}
+            title={t('hold_confirmed_banner_title')}
+            message={t('hold_confirmed_banner_desc', { name: hold.className })}
           />
         )}
 
         {effectiveStatus === 'CANCELLED' && (
           <Banner
             variant="warning"
-            title="Application Cancelled"
-            message="You have cancelled your application for this seat. The seat has returned to the class pool."
+            title={t('hold_cancelled_banner_title')}
+            message={t('hold_cancelled_banner_desc')}
           />
         )}
 
@@ -306,32 +308,32 @@ export const HoldApplicationPage: React.FC = () => {
         {/* Hold Details Summary (Correction 2: no fee row; Correction 8: Hold started and Hold ends) */}
         <div className="neu-inset p-4 sm:p-5 rounded-2xl flex flex-col gap-2.5 text-xs sm:text-sm">
           <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-            <span className="text-[#7A7396]">Class:</span>
+            <span className="text-[#7A7396]">{t('hold_class_name')}:</span>
             <span className="font-semibold text-[#241A3F]">{hold.className}</span>
           </div>
 
           {studentId && (
             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-              <span className="text-[#7A7396]">Student ID:</span>
+              <span className="text-[#7A7396]">{t('hold_student_id')}:</span>
               <span className="font-mono font-semibold text-[#241A3F]">{studentId}</span>
             </div>
           )}
 
           <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-            <span className="text-[#7A7396]">Hold Started:</span>
+            <span className="text-[#7A7396]">{t('hold_started_at')}:</span>
             <span className="text-[#241A3F]">{formatDateTime(hold.createdAt)}</span>
           </div>
 
           {effectiveStatus === 'HELD' && (
             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-              <span className="text-[#7A7396]">Hold Ends:</span>
+              <span className="text-[#7A7396]">{t('hold_expires_at')}:</span>
               <span className="font-semibold text-[#683DD0]">{formatDateTime(hold.expiresAt)}</span>
             </div>
           )}
 
           {effectiveStatus === 'EXPIRED' && (
             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-              <span className="text-[#7A7396]">Expired At:</span>
+              <span className="text-[#7A7396]">{t('hold_expires_at')}:</span>
               <span className="font-semibold text-[#B03A5B]">{formatDateTime(hold.expiresAt)}</span>
             </div>
           )}
@@ -339,12 +341,12 @@ export const HoldApplicationPage: React.FC = () => {
           {effectiveStatus === 'CONFIRMED' && (
             <>
               <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                <span className="text-[#7A7396]">Confirmed At:</span>
+                <span className="text-[#7A7396]">{t('hold_confirmed_at')}:</span>
                 <span className="font-semibold text-[#1D7A4A]">{formatDateTime(hold.confirmedAt)}</span>
               </div>
               <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                 <span className="text-[#7A7396]">Status:</span>
-                <span className="font-semibold text-[#1D7A4A]">Enrolled (Paid)</span>
+                <span className="font-semibold text-[#1D7A4A]">{t('status_confirmed')}</span>
               </div>
             </>
           )}
@@ -352,7 +354,7 @@ export const HoldApplicationPage: React.FC = () => {
           {effectiveStatus === 'CANCELLED' && (
             <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
               <span className="text-[#7A7396]">Status:</span>
-              <span className="font-semibold text-[#B03A5B]">Cancelled</span>
+              <span className="font-semibold text-[#B03A5B]">{t('status_cancelled')}</span>
             </div>
           )}
         </div>
@@ -363,7 +365,7 @@ export const HoldApplicationPage: React.FC = () => {
             <>
               {/* Simulated Payment Notice (Requirement B5) */}
               <div className="p-3 rounded-xl bg-[#E4DBF7]/40 border border-[#D3C7EE] text-xs text-[#4B22A6] text-center font-medium">
-                Payment is simulated. Confirming your application will secure your admission.
+                {t('hold_simulated_notice_desc')}
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
@@ -375,7 +377,7 @@ export const HoldApplicationPage: React.FC = () => {
                   disabled={isSubmitting || isExpired || effectiveStatus !== 'HELD'}
                   onClick={handlePay}
                 >
-                  Pay admission fee
+                  {isPaying ? t('hold_btn_paying') : t('hold_btn_pay')}
                 </Button>
                 <Button
                   variant="secondary"
@@ -385,7 +387,7 @@ export const HoldApplicationPage: React.FC = () => {
                   disabled={isSubmitting || isExpired || effectiveStatus !== 'HELD'}
                   onClick={handleCancel}
                 >
-                  Cancel application
+                  {isCancelling ? t('hold_btn_cancelling') : t('hold_btn_cancel')}
                 </Button>
               </div>
             </>
@@ -394,7 +396,7 @@ export const HoldApplicationPage: React.FC = () => {
           {effectiveStatus === 'EXPIRED' && (
             <>
               <Button variant="primary" disabled fullWidth>
-                Pay admission fee (Disabled — Hold Expired)
+                {t('hold_btn_pay_disabled_expired')}
               </Button>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <Button
@@ -402,14 +404,14 @@ export const HoldApplicationPage: React.FC = () => {
                   fullWidth
                   onClick={() => navigate(`/classes/${hold.classId}`)}
                 >
-                  Apply Again
+                  {t('hold_apply_again')}
                 </Button>
                 <Button
                   variant="secondary"
                   fullWidth
                   onClick={() => navigate('/')}
                 >
-                  Back to Classes
+                  {t('details_back')}
                 </Button>
               </div>
             </>
@@ -422,14 +424,14 @@ export const HoldApplicationPage: React.FC = () => {
                 fullWidth
                 onClick={() => navigate('/my-applications')}
               >
-                View My Applications
+                {t('nav_my_applications')}
               </Button>
               <Button
                 variant="secondary"
                 fullWidth
                 onClick={() => navigate('/')}
               >
-                Browse Other Classes
+                {t('details_back')}
               </Button>
             </div>
           )}
@@ -441,14 +443,14 @@ export const HoldApplicationPage: React.FC = () => {
                 fullWidth
                 onClick={() => navigate(`/classes/${hold.classId}`)}
               >
-                Apply Again
+                {t('hold_apply_again')}
               </Button>
               <Button
                 variant="secondary"
                 fullWidth
                 onClick={() => navigate('/')}
               >
-                Back to Classes
+                {t('details_back')}
               </Button>
             </div>
           )}

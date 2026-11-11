@@ -11,8 +11,10 @@ import {
 } from '../../shared/components';
 import { fetchClasses } from '../../api/admissionApi';
 import type { AdmissionClassDto } from '../../api/admissionApi';
+import { useTranslation } from '../../shared/i18n';
 
 export const AdminDashboardPage: React.FC = () => {
+  const { t } = useTranslation();
   // Poll classes every 5 seconds (Requirement U3, A2)
   const {
     data: classes,
@@ -52,10 +54,10 @@ export const AdminDashboardPage: React.FC = () => {
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold font-['Poppins'] text-[#241A3F]">
-            Admin Dashboard
+            {t('admin_dashboard_title')}
           </h1>
           <p className="text-sm text-[#7A7396] mt-0.5">
-            Real-time enrollment statistics and seat distribution across all class shifts.
+            {t('admin_dashboard_subtitle')}
           </p>
         </div>
 
@@ -65,7 +67,7 @@ export const AdminDashboardPage: React.FC = () => {
               <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
               </svg>
-              Create class
+              {t('nav_admin_create_class')}
             </Button>
           </Link>
         </div>

@@ -18,6 +18,7 @@ import {
 import { ApiClientError, getStoredStudentId } from '../../api/client';
 import { useCountdown } from '../../shared/hooks/useCountdown';
 import { formatDateTime } from '../../shared/utils/date';
+import { useTranslation } from '../../shared/i18n';
 
 interface ApplicationRowProps {
   hold: StudentHoldDto;
@@ -35,6 +36,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
   onExpired,
 }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [isPaying, setIsPaying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -109,7 +111,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Ends in {formattedTime}
+                {t('my_apps_held_time_left', { time: formattedTime })}
               </span>
             )}
 
@@ -118,7 +120,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                 </svg>
-                Paid {formatDateTime(hold.confirmedAt || hold.createdAt)}
+                {t('my_apps_paid_on', { time: formatDateTime(hold.confirmedAt || hold.createdAt) })}
               </span>
             )}
 
@@ -127,7 +129,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
                 <svg className="w-4 h-4 text-[#B03A5B]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Payment time ended
+                {t('my_apps_expired_desc')}
               </span>
             )}
 
@@ -136,7 +138,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Cancelled by you
+                {t('my_apps_cancelled_desc')}
               </span>
             )}
           </div>
@@ -165,7 +167,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
                 disabled={isActionRunning}
                 onClick={handlePayClick}
               >
-                Pay fee
+                {t('my_apps_btn_pay')}
               </Button>
               <Button
                 size="sm"
@@ -174,7 +176,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
                 disabled={isActionRunning}
                 onClick={handleCancelClick}
               >
-                Cancel
+                {t('my_apps_btn_cancel')}
               </Button>
             </>
           )}
@@ -185,7 +187,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
               variant="secondary"
               onClick={handleApplyAgainClick}
             >
-              Apply again
+              {t('hold_apply_again')}
             </Button>
           )}
 
@@ -195,7 +197,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
               variant="secondary"
               onClick={handleApplyAgainClick}
             >
-              Apply again
+              {t('hold_apply_again')}
             </Button>
           )}
 
@@ -205,7 +207,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
               variant="secondary"
               onClick={handleViewDetailsClick}
             >
-              View details
+              {t('my_apps_btn_view')}
             </Button>
           )}
         </div>
@@ -218,6 +220,7 @@ export const MyApplicationsPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const studentId = getStoredStudentId();
+  const { t } = useTranslation();
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [isActionRunning, setIsActionRunning] = useState(false);
@@ -316,10 +319,10 @@ export const MyApplicationsPage: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold font-['Poppins'] text-[#241A3F]">
-            My Applications
+            {t('my_apps_title')}
           </h1>
           <p className="text-sm text-[#7A7396] mt-1">
-            Track and manage your admission applications, live countdowns, and confirmed seats.
+            {t('my_apps_subtitle')}
           </p>
         </div>
 
@@ -329,7 +332,7 @@ export const MyApplicationsPage: React.FC = () => {
           onClick={() => navigate('/')}
           className="self-start sm:self-auto"
         >
-          Browse Classes
+          {t('my_apps_btn_apply_now')}
         </Button>
       </div>
 
@@ -370,11 +373,11 @@ export const MyApplicationsPage: React.FC = () => {
       {/* 3. Empty State */}
       {!isLoading && !isError && (!applications || applications.length === 0) && (
         <EmptyState
-          title="No applications yet"
-          description="You have not submitted any class seat reservations yet. Explore available classes to hold a seat."
+          title={t('my_apps_empty_title')}
+          description={t('my_apps_empty_desc')}
           action={
             <Button variant="primary" onClick={() => navigate('/')}>
-              Explore Classes
+              {t('my_apps_btn_apply_now')}
             </Button>
           }
         />

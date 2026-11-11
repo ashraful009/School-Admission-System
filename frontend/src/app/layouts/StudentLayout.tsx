@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { clearStoredStudentId, getStoredStudentId } from '../../api/client';
+import { useTranslation } from '../../shared/i18n';
 
 export const StudentLayout: React.FC = () => {
   const [studentId, setStudentId] = useState<string | null>(getStoredStudentId());
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation();
 
   useEffect(() => {
     const handleIdChange = () => {
@@ -47,7 +49,7 @@ export const StudentLayout: React.FC = () => {
                 }`
               }
             >
-              Classes
+              {t('nav_classes')}
             </NavLink>
 
             <NavLink
@@ -60,7 +62,7 @@ export const StudentLayout: React.FC = () => {
                 }`
               }
             >
-              My applications
+              {t('nav_my_applications')}
             </NavLink>
           </div>
 
@@ -70,7 +72,7 @@ export const StudentLayout: React.FC = () => {
               <div className="neu-card px-3.5 py-1.5 rounded-2xl flex items-center justify-between sm:justify-start w-full sm:w-auto gap-2.5 text-xs sm:text-sm">
                 <div className="flex items-center gap-1.5 text-[#241A3F] font-medium truncate">
                   <span className="w-2 h-2 rounded-full bg-[#1D7A4A] shrink-0" />
-                  <span className="text-[#7A7396] font-normal shrink-0">Student ID:</span>
+                  <span className="text-[#7A7396] font-normal shrink-0">{t('student_id_prefix')}</span>
                   <span className="font-mono font-semibold tracking-wider truncate">{studentId}</span>
                 </div>
                 <button
@@ -79,7 +81,7 @@ export const StudentLayout: React.FC = () => {
                   className="text-xs font-semibold text-[#683DD0] hover:text-[#4B22A6] underline cursor-pointer ml-1 transition-colors shrink-0"
                   title="Change student ID"
                 >
-                  Change
+                  {t('btn_change')}
                 </button>
               </div>
             ) : (
@@ -88,7 +90,7 @@ export const StudentLayout: React.FC = () => {
                 className="neu-btn-secondary px-3.5 py-1.5 text-xs font-semibold text-[#4B22A6] inline-flex items-center gap-1.5"
               >
                 <span className="w-2 h-2 rounded-full bg-[#B03A5B]" />
-                <span>Enter Student ID</span>
+                <span>{t('btn_enter_student_id')}</span>
               </NavLink>
             )}
           </div>

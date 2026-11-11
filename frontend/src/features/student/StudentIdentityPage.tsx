@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, Button, Input, Banner } from '../../shared/components';
 import { getStoredStudentId, isValidStudentId, setStoredStudentId } from '../../api/client';
+import { useTranslation } from '../../shared/i18n';
 
 export const StudentIdentityPage: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const existingId = getStoredStudentId() || '';
   const [studentId, setStudentId] = useState(existingId);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export const StudentIdentityPage: React.FC = () => {
     // Block non-digit keys and display friendly message
     if (!/^\d$/.test(e.key)) {
       e.preventDefault();
-      setError('Only numeric digits (0-9) are allowed in birth registration numbers.');
+      setError(t('err_digits_only'));
     }
   };
 
@@ -44,9 +46,9 @@ export const StudentIdentityPage: React.FC = () => {
 
     // If pasted or entered non-numeric characters
     if (rawVal.length > 0 && /\D/.test(rawVal)) {
-      setError('Only numeric digits (0-9) are allowed in birth registration numbers.');
+      setError(t('err_digits_only'));
     } else if (touched && digitsOnly.length < 17 && digitsOnly.length > 0) {
-      setError(`Birth registration number must be exactly 17 digits (currently ${digitsOnly.length}).`);
+      setError(t('err_exact_17_digits', { count: digitsOnly.length }));
     } else {
       setError(null);
     }
@@ -61,17 +63,17 @@ export const StudentIdentityPage: React.FC = () => {
     const trimmed = studentId.trim();
 
     if (!trimmed) {
-      setError('Please enter your 17-digit birth registration number.');
+      setError(t('err_enter_id'));
       return;
     }
 
     if (trimmed.length < 17) {
-      setError(`Birth registration number must be exactly 17 digits (currently ${trimmed.length} digits).`);
+      setError(t('err_exact_17_digits', { count: trimmed.length }));
       return;
     }
 
     if (!isValidStudentId(trimmed)) {
-      setError('Birth registration number must contain exactly 17 numeric digits.');
+      setError(t('err_17_numeric_digits'));
       return;
     }
 
@@ -100,10 +102,10 @@ export const StudentIdentityPage: React.FC = () => {
             </svg>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold font-['Poppins'] text-[#241A3F]">
-            Student Identity
+            {t('identity_title')}
           </h1>
           <p className="text-sm text-[#7A7396] mt-2 max-w-md leading-relaxed">
-            Enter the student's 17-digit birth registration number. This number is used to hold seats and verify your admission.
+            {t('identity_desc')}
           </p>
         </div>
 
@@ -112,7 +114,7 @@ export const StudentIdentityPage: React.FC = () => {
           <div className="flex flex-col gap-1.5">
             <div className="flex justify-between items-center px-1">
               <label htmlFor="birth-registration-input" className="text-sm font-semibold text-[#241A3F]">
-                Birth Registration Number
+                {t('identity_label')}
               </label>
               {/* Live n / 17 digit counter */}
               <span
@@ -125,7 +127,9 @@ export const StudentIdentityPage: React.FC = () => {
                 }`}
                 aria-live="polite"
               >
-                {studentId.length} / 17 digits {isComplete && '✓'}
+                {isComplete
+                  ? t('identity_digits_complete', { count: studentId.length })
+                  : t('identity_digits_counter', { count: studentId.length })}
               </span>
             </div>
 
@@ -157,8 +161,8 @@ export const StudentIdentityPage: React.FC = () => {
           {/* Context Banner */}
           <Banner
             variant="info"
-            title="No login required"
-            message="Your birth registration number uniquely identifies your admission applications. It is saved in your browser so your active holds remain accessible after page refresh."
+            title={t('identity_info_title')}
+            message={t('identity_info_msg')}
           />
 
           {/* Continue Button */}
@@ -170,7 +174,7 @@ export const StudentIdentityPage: React.FC = () => {
               disabled={studentId.length !== 17}
               className="py-4 text-base font-semibold"
             >
-              Continue to Classes
+              {t('identity_submit')}
             </Button>
           </div>
         </form>
