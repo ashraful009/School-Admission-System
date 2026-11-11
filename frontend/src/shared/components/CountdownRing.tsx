@@ -5,6 +5,7 @@ export interface CountdownRingProps {
   secondsLeft?: number;
   isExpired?: boolean;
   isConfirmed?: boolean;
+  isCancelled?: boolean;
   size?: number;
   strokeWidth?: number;
   className?: string;
@@ -15,6 +16,7 @@ export const CountdownRing: React.FC<CountdownRingProps> = ({
   secondsLeft = 600,
   isExpired = false,
   isConfirmed = false,
+  isCancelled = false,
   size = 220,
   strokeWidth = 14,
   className = '',
@@ -23,7 +25,7 @@ export const CountdownRing: React.FC<CountdownRingProps> = ({
   const circumference = 2 * Math.PI * radius;
 
   // Calculate progress ratio
-  const ratio = isExpired
+  const ratio = isExpired || isCancelled
     ? 0
     : isConfirmed
     ? 1
@@ -39,7 +41,7 @@ export const CountdownRing: React.FC<CountdownRingProps> = ({
 
   const strokeColor = isConfirmed
     ? '#1D7A4A'
-    : isExpired || safeSeconds <= 60
+    : isExpired || isCancelled || safeSeconds <= 60
     ? '#B03A5B'
     : '#683DD0';
 
@@ -84,6 +86,17 @@ export const CountdownRing: React.FC<CountdownRingProps> = ({
             </div>
             <span className="text-sm font-semibold text-[#1D7A4A] uppercase tracking-wider font-['Poppins']">
               Confirmed
+            </span>
+          </>
+        ) : isCancelled ? (
+          <>
+            <div className="w-12 h-12 rounded-full bg-[#F6DDE4] text-[#B03A5B] flex items-center justify-center mb-1">
+              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <span className="text-sm font-semibold text-[#B03A5B] uppercase tracking-wider font-['Poppins']">
+              Cancelled
             </span>
           </>
         ) : isExpired ? (
