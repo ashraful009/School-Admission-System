@@ -7,4 +7,5 @@ export * from './Banner';
 export * from './Skeleton';
 export * from './EmptyState';
 export * from './CountdownRing';
+export * from './RootErrorBoundary';
 

@@ -65,18 +65,18 @@ export const StudentLayout: React.FC = () => {
           </div>
 
           {/* Student ID Chip with Change button (Requirement B4) */}
-          <div className="flex items-center self-end sm:self-auto">
+          <div className="flex items-center justify-between sm:justify-start w-full sm:w-auto">
             {studentId ? (
-              <div className="neu-card px-3.5 py-1.5 rounded-2xl flex items-center gap-2.5 text-xs sm:text-sm">
-                <div className="flex items-center gap-1.5 text-[#241A3F] font-medium">
-                  <span className="w-2 h-2 rounded-full bg-[#1D7A4A]" />
-                  <span className="text-[#7A7396] font-normal">Student ID:</span>
-                  <span className="font-mono font-semibold tracking-wider">{studentId}</span>
+              <div className="neu-card px-3.5 py-1.5 rounded-2xl flex items-center justify-between sm:justify-start w-full sm:w-auto gap-2.5 text-xs sm:text-sm">
+                <div className="flex items-center gap-1.5 text-[#241A3F] font-medium truncate">
+                  <span className="w-2 h-2 rounded-full bg-[#1D7A4A] shrink-0" />
+                  <span className="text-[#7A7396] font-normal shrink-0">Student ID:</span>
+                  <span className="font-mono font-semibold tracking-wider truncate">{studentId}</span>
                 </div>
                 <button
                   type="button"
                   onClick={handleChangeId}
-                  className="text-xs font-semibold text-[#683DD0] hover:text-[#4B22A6] underline cursor-pointer ml-1 transition-colors"
+                  className="text-xs font-semibold text-[#683DD0] hover:text-[#4B22A6] underline cursor-pointer ml-1 transition-colors shrink-0"
                   title="Change student ID"
                 >
                   Change

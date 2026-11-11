@@ -79,6 +79,7 @@ export function subscribeServerStatus(listener: ServerStatusListener): () => voi
 
 function notifyServerStatus(down: boolean) {
   if (isServerDown !== down) {
+    const wasDown = isServerDown;
     isServerDown = down;
     serverStatusListeners.forEach((l) => l(isServerDown));
 
@@ -98,7 +99,26 @@ function notifyServerStatus(down: boolean) {
       clearInterval(recoveryTimer);
       recoveryTimer = null;
     }
+
+    if (wasDown && !isServerDown && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('server-recovered'));
+    }
   }
+}
+
+// Immediately probe when returning to visible tab if server was recorded as down
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isServerDown) {
+      fetch(`${getApiUrl()}/health`, { method: 'GET', cache: 'no-store' })
+        .then((res) => {
+          if (res.ok) {
+            notifyServerStatus(false);
+          }
+        })
+        .catch(() => {});
+    }
+  });
 }
 
 export interface RequestOptions extends RequestInit {
