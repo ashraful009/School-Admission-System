@@ -16,7 +16,7 @@ services:
       retries: 10
       start_period: 10s
     restart: unless-stopped
-    # Port 5432 is intentionally NOT published to the host.
+    # Port 5432 is intentionally NOT published to the host to keep database secure.
 
   backend:
     build:
@@ -35,6 +35,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
 
   frontend:
@@ -46,8 +52,81 @@ services:
     environment:
       API_URL: ${API_URL:-http://localhost:8080}
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
+
+  # Bonus X1: a second, independent backend process on host port 8081 against the SAME database.
+  # Start via: docker compose --profile x1 up -d --build
+  # It waits for the first backend to be healthy so the two processes never run migrations at the same time.
+  # Its expiry worker is also enabled; FOR UPDATE SKIP LOCKED keeps the two workers from double-releasing.
+  backend2:
+    profiles: ["x1"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8080"
+    environment:
+      ASPNETCORE_URLS:          "http://+:8080"
+      ConnectionStrings__Default: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB:-admission_db};Username=${POSTGRES_USER:-admission_user};Password=${POSTGRES_PASSWORD:-admission_pass};Maximum Pool Size=50;Timeout=30;Command Timeout=30
+      HOLD_DURATION_SECONDS:        ${HOLD_DURATION_SECONDS:-600}
+      EXPIRY_WORKER_ENABLED:        ${EXPIRY_WORKER_ENABLED:-true}
+      EXPIRY_INTERVAL_MILLISECONDS: ${EXPIRY_INTERVAL_MILLISECONDS:-1000}
+      Cors__AllowedOrigins:         ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # Bonus X1: runs scripts/x1-two-process-test.mjs inside the compose network (needs only Docker).
+  # Run via: docker compose --profile x1 run --rm x1-test
+  x1-test:
+    profiles: ["x1"]
+    image: node:20-alpine
+    working_dir: /scripts
+    volumes:
+      - ./scripts:/scripts:ro
+    environment:
+      BACKEND_A: http://backend:8080
+      BACKEND_B: http://backend2:8080
+      X1_REQUESTS: ${X1_REQUESTS:-1000}
+      X1_SEATS: ${X1_SEATS:-10}
+    depends_on:
+      backend:
+        condition: service_healthy
+      backend2:
+        condition: service_healthy
+    command: ["node", "x1-two-process-test.mjs"]
+
+  # Compose profile for running backend tests against the Docker PostgreSQL database (Decision D12)
+  # Run via: docker compose --profile tests run --rm tests
+  tests:
+    profiles: ["tests"]
+    image: mcr.microsoft.com/dotnet/sdk:8.0
+    working_dir: /work
+    volumes:
+      - ./backend:/work
+    environment:
+      TEST_CONNECTION_STRING: >-
+        Host=db;Port=5432;Database=${POSTGRES_DB:-admission_db};Username=${POSTGRES_USER:-admission_user};Password=${POSTGRES_PASSWORD:-admission_pass}
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["dotnet", "test", "--logger:console;verbosity=normal"]
 
 volumes:
   pgdata:
