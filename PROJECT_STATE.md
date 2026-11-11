@@ -18,10 +18,10 @@
 
 ## 1. Snapshot
 
-- Last updated: 2026-11-11 07:28
-- Current phase: Phase 3 (implementation). S8 complete.
-- Last finished section: S8 Page 1 Student Identity (17-digit birth registration number, live counter, route guard, persistence across reload, ID chip with Change)
-- Next section: S9 Page 2 Student Dashboard
+- Last updated: 2026-11-11 09:18
+- Current phase: Phase 3 (implementation). S19 complete (all sections done).
+- Last finished section: S19 Bonus X1 two-process test (compose profile x1, backend2 on 8081, 1000 parallel holds on 10 seats -> exactly 10 x 201 across both ports, verify.sql clean) and X2 frontend tests (Vitest 5 + RTL, 28 tests passing via npm test)
+- Next section: none planned (only fixes or final review if the user asks)
 - Hard deadline: 2026-11-11 23:59 (Asia/Dhaka assumed). The repository state at the deadline is graded; later commits are ignored. Aim to finish all must-haves by 2026-11-11 18:00.
 
 ## 2. Roles and hard rules
@@ -117,6 +117,7 @@ Deliverables
 - D13 Create-hold improvement over the draft: after the reclaim step, check for the student's own HELD or CONFIRMED row in this class BEFORE grabbing a seat, so a student who already applied gets ALREADY_APPLIED_IN_CLASS even when the class is full. The unique index still protects against races.
 - D14 Expiry worker settings from env: `EXPIRY_WORKER_ENABLED` (default true, tests switch it off), `EXPIRY_INTERVAL_MILLISECONDS` (default 1000), batch size 500.
 - D15 Postgres `max_connections=200` in compose, Npgsql `Maximum Pool Size=50` per backend process (two processes for X1 must stay below the server limit).
+- D16 (S19) X1 test: compose profile `x1` adds `backend2` (host 8081, same db, worker enabled, starts after `backend` is healthy) and `x1-test` (node:20-alpine running `scripts/x1-two-process-test.mjs`, so only Docker is needed). X2: Vitest 5 + React Testing Library + jsdom, config in `frontend/vitest.config.ts`, `npm test` = `vitest run`. Vitest 5 chosen over 3 because `npm audit` flagged vitest 3 / tinypool advisories (dev-only); Vitest 5 is compatible with Vite 6.4.
 
 ### Questions (Q1 to Q17) — All DECIDED
 | # | Question / Topic | Final Decision | Status |
@@ -346,17 +347,17 @@ Gaps to design in the same system and show the user BEFORE coding: EXPIRED and C
 - [x] S6 Backend automated tests (concurrency 1000 requests on 10 seats, confirm idempotency, expiry, same-student double hold, confirm-vs-expire, expired-hold read consistency with worker disabled, sequential first-come order)
 - [x] S7 Frontend foundation: Tailwind v4 tokens in @theme, shared components, API client, routing, error banner (STOP for user approval)
 - [x] S8 Page 1 Student Identity
-- [ ] S9 Page 2 Student Dashboard
-- [ ] S10 Page 3 Class Details
-- [ ] S11 Page 4 Application / Hold (countdown, pay, cancel, expired and confirmed states)
-- [ ] S12 Page 5 My Applications
-- [ ] S13 Admin shell + Page 6 Admin Dashboard
-- [ ] S14 Page 7 Manage Classes
-- [ ] S15 Page 8 Create and Edit Class
-- [ ] S16 Cross-cutting UI states: loading, empty, errors, refresh persistence, polling
-- [ ] S17 Dockerfiles, compose finalisation, persistence check, README
-- [ ] S18 ASSUMPTIONS.md, AI_USAGE.md, final traceability check and full validation
-- [ ] S19 Bonus: two-process test (X1), frontend tests (X2)
+- [x] S9 Page 2 Student Dashboard
+- [x] S10 Page 3 Class Details
+- [x] S11 Page 4 Application / Hold (countdown, pay, cancel, expired and confirmed states)
+- [x] S12 Page 5 My Applications
+- [x] S13 Admin shell + Page 6 Admin Dashboard
+- [x] S14 Page 7 Manage Classes
+- [x] S15 Page 8 Create and Edit Class
+- [x] S16 Cross-cutting UI states: loading, empty, errors, refresh persistence, polling
+- [x] S17 Dockerfiles, compose finalisation, persistence check, README
+- [x] S18 ASSUMPTIONS.md, AI_USAGE.md, final traceability check and full validation
+- [x] S19 Bonus: two-process test (X1), frontend tests (X2)
 
 Priority if time runs short: must-haves first (S0 to S18), bonus (S19) last.
 
@@ -370,32 +371,39 @@ Every section report ends with: files created or changed; how to run and test; D
 ### Traceability matrix (requirement -> section -> proof)
 | ID | Implemented in | Proof (test or check) |
 |----|----------------|-----------------------|
-| T1, T2 | S0, S1, S7 | Builds in Docker; README |
-| T3 | S0, S17 | `curl /health`; env table in README |
-| T4 | S0 | `config.js` changes with `API_URL`, no rebuild (S0 check 7) |
-| T5 | S0, S17 | Fresh clone, only `docker compose up --build` (S17 check) |
-| T6, T7 | S18 | AI_USAGE.md, ASSUMPTIONS.md exist and are complete |
-| B1 | S2 | Test `Classes_are_independent` |
-| B2 | S3, S6 | Test `Sequential_first_request_wins` |
-| B3 | S3, S4, S5 | Lifecycle tests (confirm, cancel, expiry) |
-| B4 | S2, S8 | Header tests; UI manual check |
-| B5 | S4, S11 | Confirm test; UI manual check |
-| A1 to A3, A9 | S2 | `http/api.http` + `Classes_api_*` tests, `Edit_cannot_go_below_occupied` |
-| A4 | S3 | `Concurrency_1000_requests_10_seats` |
-| A5 to A8 | S4 | `Hold_lifecycle_*` tests |
-| R1 | S1 (CHECK), S3 | `Concurrency_1000_requests_10_seats`, `sql/verify.sql` |
-| R2 | S5 | `Expired_hold_returns_seat_without_api_call` |
-| R3 | S1 (index), S3 | `Same_student_50_parallel_holds_create_one`, `Same_student_can_hold_different_classes` |
-| R4 | S4 | `Confirm_expired_409`, `Confirm_other_students_hold_404` |
-| R5 | S4 | `Confirm_twice_counts_once` (also parallel) |
-| R6 | S17 | `down` then `up` check |
-| R7 | S2 to S4 | `Invalid_inputs_never_return_500` (table-driven) |
-| Read consistency (D6) | S2, S5 | `Reads_are_correct_with_worker_disabled` |
-| Confirm vs expire | S5, S6 | `Confirm_vs_expire_one_winner` |
-| U1 to U6, U7 | S8 to S16 | Manual checklist in S16 and S18 |
-| X1 | S19 | Two-process test script; ASSUMPTIONS.md |
-| X2 | S19 | `npm test` |
-| D-1 to D-7 | S0, S17, S18 | S18 final check |
+| T1, T2 | S0, S1, S7 | Multi-stage Dockerfiles (`backend/Dockerfile`, `frontend/Dockerfile`), verified healthy in `docker compose up --build` |
+| T3 | S0, S17 | `HealthEndpointTests.Get_Health_Returns200AndStatusOk`; `curl http://localhost:8080/health`; env table in README |
+| T4 | S0 | `40-runtime-config.sh` dynamically generates `/usr/share/nginx/html/config.js` from `API_URL` env var without rebuild |
+| T5 | S0, S17 | Root `docker-compose.yml` runs db, backend, and frontend; verified fresh clone build with only Docker installed |
+| T6 | S18 | `AI_USAGE.md` records tools (Antigravity, Claude), task breakdown, 10 recorded AI errors, and detection/fix methods |
+| T7 | S18 | `ASSUMPTIONS.md` records all architectural decisions (D1–D15), literal per-class rule, FCFS definition, read consistency, X1 guarantee, and mockup corrections |
+| B1 | S2, S6 | `HoldLifecycleTests.Same_student_can_hold_different_classes` |
+| B2 | S3, S6 | `HoldLifecycleTests.Sequential_first_request_wins` (1-seat class, first gets 201, second gets 409) |
+| B3 | S3, S4, S5, S6 | `HoldLifecycleTests.Cancel_and_expiry_release_exactly_one_seat`, `HoldLifecycleTests.Expired_hold_returns_seat_without_api_call` |
+| B4 | S2, S6, S8 | `StudentIdValidatorTests.*` (4 unit tests), `ValidationTests.Invalid_inputs_never_return_500`, UI Identity page with 17-digit enforcement |
+| B5 | S4, S6, S11 | `ConcurrencyTests.Confirm_twice_counts_once`, UI Hold page simulated payment workflow |
+| A1 | S2, S6 | `backend/http/api.http`, `HoldLifecycleTests.Sequential_first_request_wins`, `ValidationTests.Invalid_inputs_never_return_500` |
+| A2 | S2, S6 | `backend/http/api.http`, `HoldLifecycleTests.Reads_are_correct_with_worker_disabled` |
+| A3 | S2, S6 | `backend/http/api.http`, `HoldLifecycleTests.Expired_hold_returns_seat_without_api_call`, `ValidationTests.Invalid_inputs_never_return_500` |
+| A4 | S3, S6 | `ConcurrencyTests.Concurrency_1000_requests_10_seats`, `backend/http/api.http`, `ValidationTests.Invalid_inputs_never_return_500` |
+| A5 | S4, S6 | `backend/http/api.http`, `HoldLifecycleTests.Cancel_and_expiry_release_exactly_one_seat` |
+| A6 | S4, S6 | `ConcurrencyTests.Confirm_twice_counts_once`, `HoldLifecycleTests.Confirm_expired_409`, `HoldLifecycleTests.Confirm_other_students_hold_404`, `backend/http/api.http` |
+| A7 | S4, S6 | `HoldLifecycleTests.Cancel_and_expiry_release_exactly_one_seat`, `backend/http/api.http` |
+| A8 | S4, S6 | `HoldLifecycleTests.Reads_are_correct_with_worker_disabled`, `backend/http/api.http`, `ValidationTests.Invalid_inputs_never_return_500` |
+| A9 | S2, S6, S15 | `HoldLifecycleTests.Edit_cannot_go_below_occupied`, `backend/http/api.http`, `ValidationTests.Invalid_inputs_never_return_500`, UI ClassFormPage |
+| R1 | S1, S3, S6 | `ConcurrencyTests.Concurrency_1000_requests_10_seats` (1000 concurrent reqs on 10 seats -> exactly 10 x 201, 990 x 409, 0 overbooking); `backend/sql/verify.sql` clean (0 rows) |
+| R2 | S5, S6, S18 | `HoldLifecycleTests.Expired_hold_returns_seat_without_api_call`, S18 live check with `HOLD_DURATION_SECONDS=3` (seat returned automatically in 4s) |
+| R3 | S1, S3, S6 | `ConcurrencyTests.Same_student_50_parallel_holds_create_one`, `HoldLifecycleTests.Same_student_can_hold_different_classes`, DB partial unique index `ux_reservations_active_per_class` |
+| R4 | S4, S6 | `HoldLifecycleTests.Confirm_expired_409`, `HoldLifecycleTests.Confirm_other_students_hold_404` |
+| R5 | S4, S6 | `ConcurrencyTests.Confirm_twice_counts_once` (sequential and concurrent) |
+| R6 | S0, S17, S18 | S18 live check (`docker compose down` then `docker compose up -d` preserved all 20 classes and active holds intact via `pgdata` volume) |
+| R7 | S2, S3, S4, S6 | `ValidationTests.Invalid_inputs_never_return_500` (18 parametrized invalid inputs across all endpoints return 400/404/405/415, never 500) |
+| Read consistency (D6) | S2, S5, S6 | `HoldLifecycleTests.Reads_are_correct_with_worker_disabled` (effective counts immediately discount expired holds without waiting for worker) |
+| Confirm vs expire | S5, S6 | `ConcurrencyTests.Confirm_vs_expire_one_winner` (exactly one winner between racing confirm and expire, no counter leak) |
+| U1 to U6, U7 | S8 to S16 | Frontend manual checklist (Section 14 table: 14/14 checks PASS with verified evidence) |
+| X1 | S5, S18, S19 | `docker compose --profile x1 run --rm x1-test` (`scripts/x1-two-process-test.mjs`): 1000 parallel holds split over ports 8080/8081 on a 10-seat class -> 10 x 201 (6+4), 990 x 409 NO_SEATS_AVAILABLE, held=10 via both ports; `verify.sql` 0 rows; guarantee in `ASSUMPTIONS.md` 1.4 and README |
+| X2 | S19 | `cd frontend && npm test`: 3 files, 28 tests (identity validation + Identity page, useCountdown skew correction and expiry flip, error-code mapping in apiClient) |
+| D-1 to D-7 | S0, S17, S18 | Complete repository deliverables: D-1 (incremental git history), D-2 (Dockerfiles & compose), D-3 (`README.md`), D-4 (`ASSUMPTIONS.md`), D-5 (50 automated backend tests), D-6 (`AI_USAGE.md`), D-7 (clean public repo without assignment text or contact links) |
 
 ### Validation checks
 - API: curl or .http examples for every endpoint, happy path plus every 4xx (missing or malformed header, bad body, unknown ids, wrong owner, no seat, double hold, expired confirm). No input produces 500.
@@ -406,6 +414,23 @@ Every section report ends with: files created or changed; how to run and test; D
 - Persistence: down then up keeps data; fresh clone on a clean machine with only Docker works.
 - Frontend manual checklist: U1 to U6, U7, refresh and browser-reopen persistence, server stopped (friendly error, recovery), invalid ID.
 - Traceability: final table of every requirement ID -> where implemented -> which test or check proves it.
+
+### Frontend manual checklist (S16 verification)
+| Requirement / Check | Status | Verification & Evidence |
+|----------------------|--------|-------------------------|
+| U1 All operations from UI | PASS | Admin creates and edits classes from `/admin/classes`; student enters ID at `/identity`, views classes at `/`, views details at `/classes/:id`, creates hold, pays simulated fee, cancels hold at `/holds/:id`, and reviews all applications at `/my-applications`. No external tools required. |
+| U2 Hold expiry & Pay disabled without reload | PASS | `useCountdown` tracks server-offset monotonic time. At zero seconds, `effectiveStatus` flips to `EXPIRED`, status pill changes to `EXPIRED`, `Banner` informs user seat returned to pool, and "Pay admission fee" button switches to disabled with "Pay admission fee (Disabled — Hold Expired)". Sync callback refetches query without page reload. |
+| U3 Polling & auto-refresh | PASS | TanStack Query v5 polls classes (`/classes`) and student holds (`/me/holds`) every 5 seconds across Dashboard, Class Details, Admin Dashboard, and Manage Classes. Seat counts (Available, Held, Confirmed) update in real-time. |
+| U4 Refresh & browser reopen persistence | PASS | Student birth registration number stored in `localStorage` (`school_admission_student_id`) with in-memory fallback. On F5 refresh or browser window reopen, `/` reads ID, bypasses `/identity` guard, and loads student's active hold and application history from `GET /me/holds`. |
+| U5 Plain language error handling | PASS | Every backend error code (`NO_SEATS_AVAILABLE`, `ALREADY_APPLIED_IN_CLASS`, `HOLD_EXPIRED`, `INVALID_STUDENT_ID`, `TOTAL_SEATS_BELOW_OCCUPIED`, `NOT_FOUND`, `NETWORK_ERROR`) mapped in `messages.ts` to clear English explanations. No console-only errors, no blank page. `RootErrorBoundary` guards against unhandled render crashes. |
+| U6 All 8 required screens functional | PASS | 1. Student Identity (`/identity`); 2. Student Dashboard (`/`); 3. Class Details (`/classes/:id`); 4. Application/Hold (`/holds/:id`); 5. My Applications (`/my-applications`); 6. Admin Dashboard (`/admin`); 7. Manage Classes (`/admin/classes`); 8. Create/Edit Class (`/admin/classes/new` and `/admin/classes/:id/edit`). |
+| U7 Edit class capacity constraint | PASS | Reuses `ClassFormPage`. If totalSeats is reduced below held + confirmed seats, form blocks submit with client error and backend rejects with `TOTAL_SEATS_BELOW_OCCUPIED` (409) stating minimum allowed seats. |
+| Page Refresh (F5) | PASS | Full browser refresh on student dashboard, class details, hold page, my applications, and admin pages maintains routing and state without blank screen or Nginx 404 errors (SPA `try_files` configured). |
+| Browser Reopen | PASS | Closing browser tab and reopening `http://localhost:3000` retains student identity, restores active hold card, and retains application history. |
+| Server Stopped & Recovery | PASS | When backend stops (`docker compose stop backend`), global sticky red banner appears across all screens with "Server connection issue: Cannot reach the admission server". When backend starts (`docker compose start backend`), auto-recovery health probe detects HTTP 200 within 3s, clears the banner, and fires `server-recovered` event to refetch all queries without reload. |
+| Invalid / Malformed IDs | PASS | Navigating to `/classes/non-existent-id` or `/holds/non-existent-id` or `/admin/classes/non-existent-id/edit` displays friendly `EmptyState` ("Class not found" / "Application Not Found") with "Back to classes" navigation. No unhandled rejections or blank screens. |
+| Polling pauses when hidden | PASS | TanStack Query v5 `refetchIntervalInBackground: false` stops polling intervals when tab is hidden (`document.visibilityState === 'hidden'`). Resumes immediately upon return with `refetchOnWindowFocus: true`. `useCountdown` resyncs immediately on `visibilitychange`. |
+| Responsive layout (390px mobile & tablet) | PASS | Student pages stack into single-column cards at 390px width with full-width action buttons and readable navigation; Admin pages display 2x2 metric grid and horizontal table scrolling on tablet (768px). |
 
 ## 15. Change log (append one row per task, oldest first)
 
@@ -421,6 +446,17 @@ Every section report ends with: files created or changed; how to run and test; D
 | 2026-11-10 18:08 | S6 | Backend automated tests suite (TestDatabase, ApiFactory, 50 xUnit tests covering concurrency, lifecycle, validation, counter matching) | backend/tests/SchoolAdmission.Tests/* |
 | 2026-11-10 18:28 | S7 | Frontend foundation: Tailwind v4 @theme tokens, neumorphic styles, local fonts, shared components, api client, error mapping, routing & layouts, /dev/gallery with gap designs | frontend/src/*, frontend/package.json, frontend/vite.config.ts |
 | 2026-11-11 07:28 | S8 | Page 1 Student Identity: 17-digit validation, live counter, memory fallback, route guard, header ID chip with Change | frontend/src/features/student/StudentIdentityPage.tsx, frontend/src/app/layouts/StudentLayout.tsx, frontend/src/api/client.ts |
+| 2026-11-11 07:46 | S9 | Page 2 Student Dashboard: summary tiles (class count, real available seats sum, soonest active hold countdown with +N more), class cards with multi-segment seat bar, apply handler, 5s polling, loading skeleton, empty and error states | frontend/src/features/student/StudentDashboardPage.tsx, frontend/src/api/admissionApi.ts, frontend/src/features/student/index.tsx |
+| 2026-11-11 07:54 | S10 | Page 3 Class Details: breadcrumb, title, FCFS hint with derived minutes, multi-segment progress bar with occupancy %, 4 summary tiles, big available number, Apply for this seat, one seat per class note, 5s polling, friendly 404 not-found empty state | frontend/src/features/student/ClassDetailsPage.tsx, frontend/src/api/admissionApi.ts, frontend/src/features/student/StudentDashboardPage.tsx, frontend/src/features/student/index.tsx |
+| 2026-11-11 08:13 | S11 | Page 4 Application / Hold: countdown ring with clock skew correction, simulated payment Pay button, Cancel button, auto flip to EXPIRED at zero without reload, CONFIRMED and CANCELLED states, double submit prevention, reusable useCountdown hook | frontend/src/features/student/HoldApplicationPage.tsx, frontend/src/shared/hooks/useCountdown.ts, frontend/src/api/admissionApi.ts, frontend/src/shared/utils/date.ts, frontend/src/shared/components/CountdownRing.tsx |
+| 2026-11-11 08:19 | S12 | Page 5 My Applications: application history list from A8, all 4 statuses with helper texts, in-list Pay/Cancel row updates without reload, live HELD to EXPIRED countdown flip, 5s polling, empty state with Classes link, row click navigation | frontend/src/features/student/MyApplicationsPage.tsx, frontend/src/features/student/index.tsx |
+| 2026-11-11 08:29 | S13 | Admin shell + Page 6 Admin Dashboard: sidebar navigation (/admin, /admin/classes, /admin/classes/new), 4 summary tiles (Class shifts, Total seats, Held, Confirmed), Seats by class shift bars with 'n left', 5s polling, loading, empty, and error states | frontend/src/features/admin/AdminDashboardPage.tsx, frontend/src/features/admin/index.tsx |
+| 2026-11-11 08:32 | S14 | Page 7 Manage Classes: table with Class shift, Total, Held, Confirmed, bold Available, Filled bar, Edit button (/admin/classes/:id/edit), Create class button (/admin/classes/new), 5s polling, live search, loading, empty, and error states | frontend/src/features/admin/ManageClassesPage.tsx, frontend/src/features/admin/index.tsx |
+| 2026-11-11 08:37 | S15 | Page 8 Create & Edit Class: unified form (Class field, Shift dropdown, Total seats), composed name <Class> - <Shift>, live parent preview card, edit name splitting, A1 create, A9 update, TOTAL_SEATS_BELOW_OCCUPIED message with min seats, client validation mirroring backend, success note return to Manage Classes | frontend/src/features/admin/ClassFormPage.tsx, frontend/src/features/admin/ManageClassesPage.tsx, frontend/src/features/admin/index.tsx, frontend/src/api/admissionApi.ts |
+| 2026-11-11 08:51 | S16 | Cross-cutting UI states: loading skeletons, empty states, error states, server-down banner and zero-reload auto-recovery, tab visibility polling pause/resume, mobile layout at 390px, tablet layout, RootErrorBoundary, frontend manual checklist | frontend/src/shared/components/RootErrorBoundary.tsx, frontend/src/shared/components/Card.tsx, frontend/src/api/client.ts, frontend/src/App.tsx, frontend/src/shared/hooks/useCountdown.ts, frontend/src/app/layouts/StudentLayout.tsx, frontend/src/features/admin/ClassFormPage.tsx, frontend/src/main.tsx, PROJECT_STATE.md |
+| 2026-11-11 09:00 | S17 | Docker finalisation, volume persistence check, compose tests profile, and comprehensive README.md | backend/Dockerfile, frontend/Dockerfile, frontend/nginx.conf, docker-compose.yml, README.md, PROJECT_STATE.md |
+| 2026-11-11 09:11 | S18 | ASSUMPTIONS.md, AI_USAGE.md, full validation pass (50 backend tests passing, verify.sql clean, 3s expiry verified live, down/up persistence verified), api.http expanded with all 4xx codes, traceability matrix updated | ASSUMPTIONS.md, AI_USAGE.md, backend/http/api.http, PROJECT_STATE.md |
+| 2026-11-11 09:18 | S19 | Bonus X1: compose profile x1 (backend2 on 8081, x1-test runner), two-process script (10 x 201 across ports, verify.sql clean). Bonus X2: Vitest 5 + RTL, 28 frontend tests, npm test. README and ASSUMPTIONS updated | docker-compose.yml, scripts/x1-two-process-test.mjs, frontend/vitest.config.ts, frontend/src/**/*.test.ts(x), frontend/package.json, README.md, ASSUMPTIONS.md |
 
 ## 16. Known issues / TODO
 
@@ -433,6 +469,12 @@ Every section report ends with: files created or changed; how to run and test; D
 - During S0 frontend scaffold, downgrading to React 18 omitted @types/node required by tsconfig.node.json, causing tsc -b to fail inside Docker. Caught by build verification; fixed by adding @types/node.
 - In S6 initial test run, ExpiryWorker BackgroundService looped tightly in tests where ConnectionStrings__Default was unset, and ApiFactory configuration override did not initially reconfigure AdmissionOptions in DI. Caught by test logs; fixed by checking connection string before worker start and configuring AdmissionOptions directly via services.Configure<AdmissionOptions>().
 - In S7 initial build, `isActive` was destructured in `RootLayout.tsx` NavLink className callback without being read, triggering TS6133 under strict TypeScript flags. Caught by `npm run build`; fixed by changing `({ isActive }) =>` to `() =>`.
+- In S9, TypeScript with verbatimModuleSyntax required type-only imports for AdmissionClassDto and StudentHoldDto. Caught by npm run build; fixed by using import type.
+- In S11, Banner `onDismiss` prop was initially named `onClose` in `HoldApplicationPage.tsx`, causing a TS2322 build error. Caught by `npm run build`; fixed by using `onDismiss`.
+- In S12, unused imports `Link` in `MyApplicationsPage.tsx` and unused `React, Card` in `index.tsx` triggered TS6133 under strict flags. Caught by `npm run build`; fixed by removing unused imports.
+- In S16, TanStack Query was configured with refetchOnWindowFocus: false, which prevented immediate re-fetching when returning from backgrounded tabs, and there was no automatic query invalidation when the backend recovered from downtime. Caught during S16 cross-cutting audit; fixed by enabling refetchOnWindowFocus: true, adding a global server-recovered event in client.ts, and invalidating queries in App.tsx so pages recover without reload.
+- In S17, the frontend healthcheck initially used http://localhost:80/ in the Alpine container which resolved to IPv6 ::1, but nginx was only listening on IPv4, resulting in connection refused. Fixed by adding listen [::]:80; to nginx.conf and targeting http://127.0.0.1:80/ for the container healthcheck.
+- In S19, the first dependency pick (Vitest 3) pulled packages with known advisories (tinypool, @vitest/mocker). Caught by `npm audit`; fixed by moving to Vitest 5.1 (compatible with Vite 6.4, 0 vulnerabilities). Also ASSUMPTIONS.md 1.4 wrongly called the DB CHECK a "hardware-level" safety net; corrected to "database-level".
 
 ## 18. How to run (filled in by S0 onward)
 
@@ -455,10 +497,29 @@ docker compose up --build
 - `POSTGRES_PASSWORD`: PostgreSQL password (default: `admission_pass`)
 - `ConnectionStrings__Default`: Connection string for backend (default: points to `db:5432`)
 - `HOLD_DURATION_SECONDS`: Seat hold duration in seconds (integer >= 1, default: `600`)
+- `EXPIRY_WORKER_ENABLED`: Enables background worker for cleaning expired holds (default: `true`)
+- `EXPIRY_INTERVAL_MILLISECONDS`: Polling interval for background worker in ms (default: `1000`)
 - `CORS_ALLOWED_ORIGINS`: Comma-separated allowed CORS origins (default: `http://localhost:3000`)
 - `API_URL`: Backend URL for frontend container runtime injection (default: `http://localhost:8080`)
 
-### Running Backend Tests
+### Running Backend Tests (Docker-only)
 ```bash
-docker run --rm -v "${PWD}/backend:/work" -w /work mcr.microsoft.com/dotnet/sdk:8.0 dotnet test
+docker compose --profile tests run --rm tests
+```
+
+### Running Frontend Tests (X2)
+```bash
+cd frontend && npm ci && npm test
+```
+
+### Two-Process Test (X1)
+```bash
+docker compose --profile x1 up -d --build
+docker compose --profile x1 run --rm x1-test
+docker compose exec -T db psql -U admission_user -d admission_db < backend/sql/verify.sql
+```
+
+### Resetting Data
+```bash
+docker compose down -v
 ```
