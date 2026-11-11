@@ -18,10 +18,10 @@
 
 ## 1. Snapshot
 
-- Last updated: 2026-11-11 15:46
-- Current phase: Phase 3 (implementation). S19 complete + Bangla/English i18n switcher implemented.
-- Last finished section: S19 + Bangla/English i18n support (navbar toggle, full UI & error messages in BN/EN, 35 frontend tests passing, 50 backend tests passing)
-- Next section: none planned (only fixes or final review if the user asks)
+- Last updated: 2026-11-11 21:28
+- Current phase: Phase 3 (implementation). Section 5 Frontend Remediation complete.
+- Last finished section: Section 5 — Frontend Remediation: i18n Bug, Submission UX, Component Tests & Test Count Reconciliation
+- Next section: none (all tasks complete, 88 backend tests + 103 frontend tests green)
 - Hard deadline: 2026-11-11 23:59 (Asia/Dhaka assumed). The repository state at the deadline is graded; later commits are ignored. Aim to finish all must-haves by 2026-11-11 18:00.
 
 ## 2. Roles and hard rules
@@ -103,7 +103,7 @@ Deliverables
 
 ### Decided (Architectural & Technical)
 - D1 EF Core (Npgsql) plus raw SQL for the conditional updates. Prisma is a Node ORM and must NOT be used.
-- D2 Active-hold rule is PER CLASS, exactly as the requirement says: one student may have at most ONE active (HELD) or CONFIRMED application in the same class. Classes are independent (a student may hold Class 6 Morning and Class 7 Morning together, and Class 6 Morning and Class 6 Day together). After cancel or expiry the student may apply to that class again. Enforce with ONE partial unique index on (class_id, student_id) WHERE status IN ('HELD','CONFIRMED'); return a distinct 409 error code when hit. Do NOT add a global one-hold-per-student limit.
+- D2 (SUPERSEDED by D16 in S20): Originally active-hold rule was per-class. Replaced by D16.
 - D3 Shift is not a column. UI composes name "Class 6 - Morning Shift" from a class field and a shift dropdown. API only takes `name`.
 - D4 Student ID validated as exactly 17 digits `^\d{17}$`, stored as string.
 - D5 FCFS definition: a request that completes before another starts always wins; truly simultaneous requests are ordered by the class row lock; commit order is grant order. No queue (the contract is synchronous). Document in ASSUMPTIONS.md and README.
@@ -117,13 +117,13 @@ Deliverables
 - D13 Create-hold improvement over the draft: after the reclaim step, check for the student's own HELD or CONFIRMED row in this class BEFORE grabbing a seat, so a student who already applied gets ALREADY_APPLIED_IN_CLASS even when the class is full. The unique index still protects against races.
 - D14 Expiry worker settings from env: `EXPIRY_WORKER_ENABLED` (default true, tests switch it off), `EXPIRY_INTERVAL_MILLISECONDS` (default 1000), batch size 500.
 - D15 Postgres `max_connections=200` in compose, Npgsql `Maximum Pool Size=50` per backend process (two processes for X1 must stay below the server limit).
-- D16 (S19) X1 test: compose profile `x1` adds `backend2` (host 8081, same db, worker enabled, starts after `backend` is healthy) and `x1-test` (node:20-alpine running `scripts/x1-two-process-test.mjs`, so only Docker is needed). X2: Vitest 5 + React Testing Library + jsdom, config in `frontend/vitest.config.ts`, `npm test` = `vitest run`. Vitest 5 chosen over 3 because `npm audit` flagged vitest 3 / tinypool advisories (dev-only); Vitest 5 is compatible with Vite 6.4.
+- D17 (supersedes D16, fixes specification conflict in Section 2.5 and 2.6): a student cannot have more than one active application (HELD unexpired or CONFIRMED admission) in the SAME class. However, the same student MUST be allowed to have active applications in DIFFERENT classes simultaneously. Enforced via database partial unique index `ux_reservations_active_per_class` on `reservations (class_id, student_id) WHERE status IN ('HELD','CONFIRMED')`. Create-hold pre-check checks for existing active applications in the same class and returns 409 `ALREADY_APPLIED_IN_CLASS`. Concurrent requests from the same student to different classes can both succeed when seats are available.
 
 ### Questions (Q1 to Q17) — All DECIDED
 | # | Question / Topic | Final Decision | Status |
 |---|------------------|----------------|--------|
 | Q1 | Edit class? Contract has no PUT/PATCH | Edit class IS in scope. Add extra endpoint A9 `PUT /classes/{classId}` (additive, the contract stays intact). Total seats can never go below held + confirmed. UI: Edit button on Manage Classes, edit form reuses the Create Class page. | DECIDED |
-| Q2 | One student may hold CONFIRMED in several classes? | Per class only (confirmed by user after a warning). One student may hold or confirm in several different classes. Classes are independent (D2 stays). | DECIDED |
+| Q2 | One student may hold CONFIRMED in several classes? | SUPERSEDED BY D17. A student cannot have more than one active application in the SAME class. Applications in DIFFERENT classes are permitted simultaneously per Section 2.5 and 2.6. | DECIDED |
 | Q3 | Repeat confirm on own CONFIRMED hold | Repeat confirm on own CONFIRMED hold returns 200 CONFIRMED, idempotent, counters untouched. | DECIDED |
 | Q4 | Confirm expired hold / another student's hold / CANCELLED hold | Expired returns 409 (HOLD_EXPIRED); another student's hold returns 404 (NOT_FOUND); CANCELLED returns 409 (HOLD_NOT_ACTIVE). | DECIDED |
 | Q5 | DELETE own HELD / already CANCELLED / CONFIRMED or EXPIRED / other's hold | Own HELD returns 204; own CANCELLED returns 204 (idempotent); CONFIRMED returns 409 (HOLD_ALREADY_CONFIRMED); EXPIRED returns 409 (HOLD_EXPIRED); another student's returns 404 (NOT_FOUND). | DECIDED |
@@ -157,6 +157,7 @@ Codes:
 - `UNSUPPORTED_MEDIA_TYPE` (415)
 - `NO_SEATS_AVAILABLE` (409)
 - `ALREADY_APPLIED_IN_CLASS` (409)
+- `ALREADY_APPLIED_ELSEWHERE` (409)
 - `HOLD_EXPIRED` (409)
 - `HOLD_NOT_ACTIVE` (409 - cancelled)
 - `HOLD_ALREADY_CONFIRMED` (409)
@@ -171,7 +172,7 @@ Timestamps are ISO 8601 UTC with seconds, e.g. `2026-11-11T04:10:00Z`.
 | A2 | `GET /classes` | none | 200 array `{id, name, totalSeats, heldSeats, confirmedSeats, availableSeats, holdDurationSeconds}`, oldest first, `[]` if none | none |
 | A3 | `GET /classes/{classId}` | none | 200 same object | 404 NOT_FOUND (unknown or malformed id) |
 | A9 | `PUT /classes/{classId}` `{name, totalSeats}` (extra) | none | 200 same object as A3 | 400 VALIDATION_ERROR; 404 NOT_FOUND; 409 TOTAL_SEATS_BELOW_OCCUPIED (new total under held + confirmed after releasing expired holds) |
-| A4 | `POST /classes/{classId}/holds` | `X-Student-Id` | 201 `{holdId, classId, studentId, status:"HELD", expiresAt, className, createdAt, serverTime}` | 400 INVALID_STUDENT_ID; 404 NOT_FOUND (class); 409 ALREADY_APPLIED_IN_CLASS; 409 NO_SEATS_AVAILABLE |
+| A4 | `POST /classes/{classId}/holds` | `X-Student-Id` | 201 `{holdId, classId, studentId, status:"HELD", expiresAt, className, createdAt, serverTime}` | 400 INVALID_STUDENT_ID; 404 NOT_FOUND (class); 409 ALREADY_APPLIED_IN_CLASS; 409 ALREADY_APPLIED_ELSEWHERE; 409 NO_SEATS_AVAILABLE |
 | A5 | `GET /holds/{holdId}` | none | 200 `{holdId, classId, status, expiresAt, className, createdAt, confirmedAt, serverTime}` (status is EXPIRED when HELD and past expiresAt) | 404 NOT_FOUND |
 | A6 | `POST /holds/{holdId}/confirm` | `X-Student-Id` | 200 `{holdId, status:"CONFIRMED", classId, confirmedAt}`; repeat on own CONFIRMED hold also 200, counters untouched | 400 INVALID_STUDENT_ID; 404 NOT_FOUND (unknown, malformed, or someone else's); 409 HOLD_EXPIRED; 409 HOLD_NOT_ACTIVE (cancelled) |
 | A7 | `DELETE /holds/{holdId}` | `X-Student-Id` | 204 (own HELD; own CANCELLED again also 204) | 400 INVALID_STUDENT_ID; 404 NOT_FOUND; 409 HOLD_ALREADY_CONFIRMED; 409 HOLD_EXPIRED |
@@ -315,15 +316,15 @@ Services: `db` (postgres:16, named volume for /var/lib/postgresql/data, healthch
 11.2 Behaviour. Polling about every 5 s for classes and the student's holds; countdown driven by expiresAt with clock-skew correction (response Date header or serverTime); at zero show EXPIRED, disable Pay, refetch; one central API client with error-to-message mapping; global banner for server-down; loading, empty and error states on every list.
 
 11.3 Mockup corrections (the 8 mockup images are the visual source of truth for layout and style; these items are NOT requirements or are wrong):
-1. Class Details says "hold one seat at a time across all classes": WRONG vs D2. Use "You can hold one seat per class at a time."
+1. Class Details says "hold one seat at a time across all classes": Adopted per Decision D16 (replaces D2). Helper text: "You can have one active application at a time across all classes."
 2. Hold page shows "Admission fee BDT 5,000": placeholder, remove (Q9).
 3. Manage Classes shows an Edit button: Edit button stays (A9 / U7). Total seats cannot go below held + confirmed.
 4. Dashboard "Seats left today 244" does not match the tiles (the six classes sum to 75 available): compute the real sum of availableSeats. "Good morning" is static: use a neutral greeting.
 5. Manage Classes and Create Class mockups show the student top bar: admin pages use the admin sidebar layout under `/admin`, and the top nav has Student and Admin links.
-6. Dashboard "Your active hold" is a single tile, but a student can have several active holds (one per class): show the soonest-expiring HELD with "+N more", and a "No active hold" state.
+6. Dashboard "Your active hold" is a single tile: Under D16, a student has at most ONE active application across all classes, so the tile shows that single application directly; the "+N more" badge is removed. Shows "No active hold" when no application is active.
 7. Class Details "10 minutes" is hard-coded: derive from the hold duration (holdDurationSeconds, Q16).
 8. Hold page "Hold started" needs createdAt; My Applications "Paid 09 Nov, 11:20 AM" needs confirmedAt: extra fields (Q16).
-9. On the Class Details page, if the student already has an active or confirmed application in that class, show a disabled "Already applied" state; the UI must also handle the 409 code.
+9. On the Class Details page and Student Dashboard, when an active application exists: for the active class show disabled "Already applied" and "View application" link; for other classes disable Apply with "Application in progress" (HELD) or "Already enrolled" (CONFIRMED). The UI handles 409 codes (ALREADY_APPLIED_IN_CLASS and ALREADY_APPLIED_ELSEWHERE) from races with friendly messages and automatic query invalidation.
 10. My Applications: EXPIRED shows "Apply again" (kept); CANCELLED also gets "Apply again".
 11. Identity page: the nav items show before an ID exists; redirect to Identity when no ID is stored. Identity chip with "Change" returns to Identity page and clears stored ID.
 Gaps to design in the same system and show the user BEFORE coding: EXPIRED and CONFIRMED hold page, error banners (invalid ID, no seats, hold expired, already applied in this class, server down), empty states, loading skeletons, mobile layout.
@@ -358,6 +359,8 @@ Gaps to design in the same system and show the user BEFORE coding: EXPIRED and C
 - [x] S17 Dockerfiles, compose finalisation, persistence check, README
 - [x] S18 ASSUMPTIONS.md, AI_USAGE.md, final traceability check and full validation
 - [x] S19 Bonus: two-process test (X1), frontend tests (X2)
+- [x] S20 One active application per student across all classes (backend and tests)
+- [x] S21 Single-application rule in the UI and documents
 
 Priority if time runs short: must-haves first (S0 to S18), bonus (S19) last.
 
@@ -458,6 +461,12 @@ Every section report ends with: files created or changed; how to run and test; D
 | 2026-11-11 09:11 | S18 | ASSUMPTIONS.md, AI_USAGE.md, full validation pass (50 backend tests passing, verify.sql clean, 3s expiry verified live, down/up persistence verified), api.http expanded with all 4xx codes, traceability matrix updated | ASSUMPTIONS.md, AI_USAGE.md, backend/http/api.http, PROJECT_STATE.md |
 | 2026-11-11 09:18 | S19 | Bonus X1: compose profile x1 (backend2 on 8081, x1-test runner), two-process script (10 x 201 across ports, verify.sql clean). Bonus X2: Vitest 5 + RTL, 28 frontend tests, npm test. README and ASSUMPTIONS updated | docker-compose.yml, scripts/x1-two-process-test.mjs, frontend/vitest.config.ts, frontend/src/**/*.test.ts(x), frontend/package.json, README.md, ASSUMPTIONS.md |
 | 2026-11-11 15:46 | i18n | Bangla/English live language switcher: navbar toggle button (BN/EN), zero-dependency React context with localStorage persistence, complete UI and error mapping translation, 35 frontend tests passing | frontend/src/shared/i18n.tsx, frontend/src/shared/components/LanguageToggle.tsx, frontend/src/shared/messages.ts, frontend/src/shared/i18n.test.tsx, frontend/src/app/layouts/*, frontend/src/features/**/* |
+| 2026-11-11 16:11 | Data Seed + i18n | Cleaned DB, added realistic Class 6-10 Morning/Day shifts with varied seats & confirmed/held reservations, added dynamic bilingual class name formatter (tClass) in frontend i18n, 36 tests passing | backend/sql/seed_real_data.sql, frontend/src/shared/i18n.tsx, frontend/src/features/**/* |
+| 2026-11-11 16:49 | S20 | One active application per student across all classes (D16, stricter R3): data-cleaning migration, ux_reservations_active_per_student unique index, create-hold cross-class reclaim & deadlock retry, ALREADY_APPLIED_ELSEWHERE (409), 55 backend tests green | backend/src/SchoolAdmission.*, backend/sql/verify.sql, backend/http/api.http, backend/tests/ |
+| 2026-11-11 17:08 | S21 | Single-application rule in UI & docs (D16): useActiveApplication shared hook, disable other Apply buttons (Application in progress / Already enrolled), active class view application link & top banner, My Applications disabled Apply again with note, 409 friendly race handling, ASSUMPTIONS.md, README.md, PROJECT_STATE.md updated, 42 frontend tests passing | frontend/src/shared/hooks/useActiveApplication.ts(x), frontend/src/features/student/*, frontend/src/shared/messages.ts, frontend/src/shared/i18n.tsx, ASSUMPTIONS.md, README.md, PROJECT_STATE.md |
+| 2026-11-11 20:12 | Section 3 | Concurrency test reliability fix: decoupled cancel vs expire into deterministic cancel-wins (204) and expire-wins (409 HOLD_EXPIRED), eliminated 1s timing delays & permissive assertions, added row-lock contention verification, 78 backend tests + 46 frontend tests green | backend/tests/SchoolAdmission.Tests/ConcurrencyTests.cs, PROJECT_STATE.md |
+| 2026-11-11 20:44 | Section 4 | HTTP 415 unified error envelope normalization (SuppressMapClientErrors = true, ErrorHandlingMiddleware message update, InvalidModelStateResponseFactory safeguard) and comprehensive automated validation coverage (whitespace name, >100 char name MemberData, decimal totalSeats, string totalSeats, missing body, null body, text/plain 415 on POST/PUT, DELETE 405), 88 backend tests + 46 frontend tests green | backend/src/SchoolAdmission.Api/Program.cs, backend/src/SchoolAdmission.Api/Middleware/ErrorHandlingMiddleware.cs, backend/tests/SchoolAdmission.Tests/ValidationTests.cs, PROJECT_STATE.md |
+| 2026-11-11 21:28 | Section 5 | Frontend Remediation: fixed Bangla error precedence bug across all pages (never prioritizing rawMessage), implemented single in-flight dashboard submission guard disabling concurrent Apply clicks, added 7 high-value component test suites (103 frontend tests total), verified all 88 backend tests green and reconciled test count discrepancy | frontend/src/api/client.ts, frontend/src/features/**/*.tsx, frontend/src/**/*.test.tsx, PROJECT_STATE.md |
 
 ## 16. Known issues / TODO
 
@@ -476,6 +485,7 @@ Every section report ends with: files created or changed; how to run and test; D
 - In S16, TanStack Query was configured with refetchOnWindowFocus: false, which prevented immediate re-fetching when returning from backgrounded tabs, and there was no automatic query invalidation when the backend recovered from downtime. Caught during S16 cross-cutting audit; fixed by enabling refetchOnWindowFocus: true, adding a global server-recovered event in client.ts, and invalidating queries in App.tsx so pages recover without reload.
 - In S17, the frontend healthcheck initially used http://localhost:80/ in the Alpine container which resolved to IPv6 ::1, but nginx was only listening on IPv4, resulting in connection refused. Fixed by adding listen [::]:80; to nginx.conf and targeting http://127.0.0.1:80/ for the container healthcheck.
 - In S19, the first dependency pick (Vitest 3) pulled packages with known advisories (tinypool, @vitest/mocker). Caught by `npm audit`; fixed by moving to Vitest 5.1 (compatible with Vite 6.4, 0 vulnerabilities). Also ASSUMPTIONS.md 1.4 wrongly called the DB CHECK a "hardware-level" safety net; corrected to "database-level".
+- In S20 Step 3 Pre-check, the DbDataReader was left open when calling tx.RollbackAsync(), causing Npgsql to throw NpgsqlOperationInProgressException resulting in a 500 error instead of 409. Caught by test run failure; fixed by reading the values inside using scope and ensuring the reader is disposed before executing transaction rollback.
 
 ## 18. How to run (filled in by S0 onward)
 

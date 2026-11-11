@@ -26,7 +26,7 @@ export const HoldApplicationPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const studentId = getStoredStudentId();
-  const { t } = useTranslation();
+  const { t, tClass } = useTranslation();
 
   const [isPaying, setIsPaying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -281,7 +281,7 @@ export const HoldApplicationPage: React.FC = () => {
           <Banner
             variant="success"
             title={t('hold_confirmed_banner_title')}
-            message={t('hold_confirmed_banner_desc', { name: hold.className })}
+            message={t('hold_confirmed_banner_desc', { name: tClass(hold.className) })}
           />
         )}
 
@@ -309,7 +309,7 @@ export const HoldApplicationPage: React.FC = () => {
         <div className="neu-inset p-4 sm:p-5 rounded-2xl flex flex-col gap-2.5 text-xs sm:text-sm">
           <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
             <span className="text-[#7A7396]">{t('hold_class_name')}:</span>
-            <span className="font-semibold text-[#241A3F]">{hold.className}</span>
+            <span className="font-semibold text-[#241A3F]">{tClass(hold.className)}</span>
           </div>
 
           {studentId && (

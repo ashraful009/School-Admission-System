@@ -4,6 +4,7 @@ import {
   I18nProvider,
   useTranslation,
   getTranslation,
+  formatClassName,
   TRANSLATIONS,
   LANG_STORAGE_KEY,
 } from './i18n';
@@ -29,6 +30,12 @@ describe('i18n Dictionary Integrity', () => {
   it('gracefully falls back when key is missing', () => {
     const fallback = getTranslation('en', 'NON_EXISTENT_KEY' as any);
     expect(fallback).toBe('NON_EXISTENT_KEY');
+  });
+
+  it('translates standard class names to Bangla when lang is bn', () => {
+    expect(formatClassName('Class 6 - Morning Shift', 'en')).toBe('Class 6 - Morning Shift');
+    expect(formatClassName('Class 6 - Morning Shift', 'bn')).toBe('ষষ্ঠ শ্রেণি - মর্নিং শিফট');
+    expect(formatClassName('Class 10 - Day Shift', 'bn')).toBe('দশম শ্রেণি - ডে শিফট');
   });
 });
 

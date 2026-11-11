@@ -47,7 +47,7 @@ WHERE (held_seats + confirmed_seats) > total_seats
 
 -- -----------------------------------------------------------------------------
 -- (c) Existence and definition of the partial unique index ux_reservations_active_per_class.
---     Should return 1 row confirming the unique index and predicate.
+--     Should return 1 row confirming the unique index and predicate on (class_id, student_id).
 -- -----------------------------------------------------------------------------
 SELECT 
     schemaname,
@@ -57,4 +57,30 @@ SELECT
 FROM pg_indexes
 WHERE tablename = 'reservations'
   AND indexname = 'ux_reservations_active_per_class';
+
+-- -----------------------------------------------------------------------------
+-- (c.2) Verify that the old global index ux_reservations_active_per_student does NOT exist.
+--       Must return 0 rows.
+-- -----------------------------------------------------------------------------
+SELECT 
+    schemaname,
+    tablename,
+    indexname,
+    indexdef
+FROM pg_indexes
+WHERE tablename = 'reservations'
+  AND indexname = 'ux_reservations_active_per_student';
+
+-- -----------------------------------------------------------------------------
+-- (d) Any student having more than one active (HELD or CONFIRMED) reservation in the SAME class.
+--     Must return 0 rows.
+-- -----------------------------------------------------------------------------
+SELECT 
+    class_id,
+    student_id,
+    COUNT(*) AS active_count
+FROM reservations
+WHERE status IN ('HELD', 'CONFIRMED')
+GROUP BY class_id, student_id
+HAVING COUNT(*) > 1;
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Button, Input, Banner } from '../../shared/components';
+import { Card, Button, Input } from '../../shared/components';
 import { getStoredStudentId, isValidStudentId, setStoredStudentId } from '../../api/client';
 import { useTranslation } from '../../shared/i18n';
 
@@ -158,12 +158,6 @@ export const StudentIdentityPage: React.FC = () => {
             />
           </div>
 
-          {/* Context Banner */}
-          <Banner
-            variant="info"
-            title={t('identity_info_title')}
-            message={t('identity_info_msg')}
-          />
 
           {/* Continue Button */}
           <div className="pt-2">

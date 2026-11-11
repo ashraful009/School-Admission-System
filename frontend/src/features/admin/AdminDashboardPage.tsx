@@ -14,7 +14,7 @@ import type { AdmissionClassDto } from '../../api/admissionApi';
 import { useTranslation } from '../../shared/i18n';
 
 export const AdminDashboardPage: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, tClass } = useTranslation();
   // Poll classes every 5 seconds (Requirement U3, A2)
   const {
     data: classes,
@@ -329,7 +329,7 @@ export const AdminDashboardPage: React.FC = () => {
                         className="text-base sm:text-lg font-bold font-['Poppins'] text-[#241A3F] hover:text-[#4B22A6] transition-colors"
                         title="View class details"
                       >
-                        {shift.name}
+                        {tClass(shift.name)}
                       </Link>
                     </div>
 

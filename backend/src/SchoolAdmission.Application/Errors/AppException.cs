@@ -36,3 +36,9 @@ public class ConflictException : AppException
         : base(409, errorCode, message) { }
 }
 
+public class InternalErrorException : AppException
+{
+    public InternalErrorException(string message = "An internal server error occurred.") 
+        : base(500, "INTERNAL_ERROR", message) { }
+}
+

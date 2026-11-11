@@ -13,8 +13,8 @@ services:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admission_user} -d ${POSTGRES_DB:-admission_db}"]
       interval: 5s
       timeout: 5s
-      retries: 10
-      start_period: 10s
+      retries: 20
+      start_period: 30s
     restart: unless-stopped
     # Port 5432 is intentionally NOT published to the host to keep database secure.
 

@@ -154,11 +154,14 @@ export const ClassFormPage: React.FC = () => {
       }
     } catch (err: unknown) {
       if (err instanceof ApiClientError) {
-        if (err.code === 'TOTAL_SEATS_BELOW_OCCUPIED') {
-          // Plain language friendly message with minimum allowed
+        if (err.code === 'TOTAL_SEATS_BELOW_OCCUPIED' && existingOccupied !== undefined) {
+          // Plain language friendly message with minimum allowed in active language
           setServerError(
-            err.rawMessage ||
-              `Cannot reduce total seats to ${seats}. Currently ${existingOccupied} seats are occupied (${existingHeld} held, ${existingConfirmed} confirmed). Minimum allowed is ${existingOccupied} seats.`
+            t('form_err_seats_below_occupied', {
+              count: existingOccupied,
+              held: existingHeld ?? 0,
+              confirmed: existingConfirmed ?? 0,
+            }) || err.message
           );
         } else {
           setServerError(err.message || 'Failed to save class. Please check your inputs.');

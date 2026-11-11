@@ -34,9 +34,6 @@ export const TRANSLATIONS = {
     identity_label: 'Birth Registration Number',
     identity_digits_counter: '{count} / 17 digits',
     identity_digits_complete: '{count} / 17 digits ✓',
-    identity_info_title: 'No login required',
-    identity_info_msg:
-      'Your birth registration number uniquely identifies your admission applications. It is saved in your browser so your active holds remain accessible after page refresh.',
     identity_submit: 'Continue to Classes',
     err_digits_only: 'Only numeric digits (0-9) are allowed in birth registration numbers.',
     err_enter_id: 'Please enter your 17-digit birth registration number.',
@@ -71,6 +68,12 @@ export const TRANSLATIONS = {
     btn_applying: 'Applying...',
     btn_class_full: 'Class Full',
     btn_already_applied: 'Already Applied',
+    btn_application_in_progress: 'Application in progress',
+    btn_already_enrolled: 'Already enrolled',
+    view_application: 'View application',
+    banner_active_application: 'You have an active hold for {class}. Complete payment before it expires.',
+    banner_confirmed_enrolled: 'You are already enrolled in {class}. You have confirmed admission for this academic year.',
+    cannot_apply_active_exists: 'Cannot apply while an active application exists in this class',
     btn_view_details: 'View Details',
 
     // Page 3: Class Details
@@ -83,7 +86,7 @@ export const TRANSLATIONS = {
     details_tile_confirmed: 'Confirmed Admissions',
     details_big_available: 'Seats Available',
     details_big_available_sub: 'Seats remaining for immediate reservation',
-    details_one_seat_note: 'Notice: You can hold one seat per class at a time.',
+    details_one_seat_note: 'You can have at most one active application in this class at a time.',
     details_apply_btn: 'Apply for this Seat',
     details_class_full: 'This class has no seats available at the moment.',
     details_not_found_title: 'Class Not Found',
@@ -231,9 +234,6 @@ export const TRANSLATIONS = {
     identity_label: 'জন্ম নিবন্ধন নম্বর',
     identity_digits_counter: '{count} / ১৭ সংখ্যা',
     identity_digits_complete: '{count} / ১৭ সংখ্যা ✓',
-    identity_info_title: 'কোনো লগইন প্রয়োজন নেই',
-    identity_info_msg:
-      'আপনার জন্ম নিবন্ধন নম্বরটি আপনার ভর্তি আবেদন চিহ্নিত করে। এটি আপনার ব্রাউজারে সংরক্ষিত থাকবে যাতে পেজ রিফ্রেশ করলেও আবেদনটি পাওয়া যায়।',
     identity_submit: 'ক্লাস তালিকায় এগিয়ে যান',
     err_digits_only: 'জন্ম নিবন্ধন নম্বরে শুধুমাত্র সংখ্যা (০-৯) গ্রহণযোগ্য।',
     err_enter_id: 'অনুগ্রহ করে আপনার ১৭-সংখ্যার জন্ম নিবন্ধন নম্বর লিখুন।',
@@ -268,6 +268,12 @@ export const TRANSLATIONS = {
     btn_applying: 'আবেদন হচ্ছে...',
     btn_class_full: 'আসন পূর্ণ',
     btn_already_applied: 'ইতিমধ্যে আবেদন করেছেন',
+    btn_application_in_progress: 'আবেদন প্রক্রিয়াধীন',
+    btn_already_enrolled: 'ইতিমধ্যে ভর্তি সম্পন্ন',
+    view_application: 'আবেদন দেখুন',
+    banner_active_application: '{class}-এ আপনার একটি সক্রিয় আসন সংরক্ষণ রয়েছে। মেয়াদ শেষ হওয়ার আগে ফি পরিশোধ সম্পন্ন করুন।',
+    banner_confirmed_enrolled: '{class}-এ আপনার ভর্তি ইতিমধ্যে নিশ্চিত হয়েছে।',
+    cannot_apply_active_exists: 'এই ক্লাসে সক্রিয় আবেদন থাকা অবস্থায় পুনরায় আবেদন করা যাবে না',
     btn_view_details: 'বিস্তারিত দেখুন',
 
     // Page 3: Class Details
@@ -280,7 +286,7 @@ export const TRANSLATIONS = {
     details_tile_confirmed: 'ভর্তি নিশ্চিত',
     details_big_available: 'আসন ফাঁকা আছে',
     details_big_available_sub: 'তাৎক্ষণিক সংরক্ষণের জন্য আসন অবশিষ্ট',
-    details_one_seat_note: 'বিজ্ঞপ্তি: আপনি একই ক্লাসে একবারে কেবল একটি আসন সংরক্ষণ করতে পারবেন।',
+    details_one_seat_note: 'আপনি এই ক্লাসে একসাথে একটিমাত্র সক্রিয় আবেদন রাখতে পারবেন।',
     details_apply_btn: 'এই আসনের জন্য আবেদন করুন',
     details_class_full: 'বর্তমানে এই ক্লাসে কোনো আসন ফাঁকা নেই।',
     details_not_found_title: 'ক্লাসটি পাওয়া যায়নি',
@@ -419,10 +425,52 @@ export function getTranslation(
   return text;
 }
 
+export function formatClassName(name: string, lang: Language): string {
+  if (lang === 'en' || !name) return name;
+
+  const classMap: Record<string, string> = {
+    'Class 10': 'দশম শ্রেণি',
+    'Class 9': 'নবম শ্রেণি',
+    'Class 8': 'অষ্টম শ্রেণি',
+    'Class 7': 'সপ্তম শ্রেণি',
+    'Class 6': 'ষষ্ঠ শ্রেণি',
+    'Class 5': 'পঞ্চম শ্রেণি',
+    'Grade 10': 'দশম শ্রেণি',
+    'Grade 9': 'নবম শ্রেণি',
+    'Grade 8': 'অষ্টম শ্রেণি',
+    'Grade 7': 'সপ্তম শ্রেণি',
+    'Grade 6': 'ষষ্ঠ শ্রেণি',
+  };
+
+  const shiftMap: Record<string, string> = {
+    'Morning Shift': 'মর্নিং শিফট',
+    'Day Shift': 'ডে শিফট',
+    'Evening Shift': 'ইভনিং শিফট',
+  };
+
+  let translated = name;
+  for (const [enClass, bnClass] of Object.entries(classMap)) {
+    if (translated.includes(enClass)) {
+      translated = translated.replace(enClass, bnClass);
+      break;
+    }
+  }
+
+  for (const [enShift, bnShift] of Object.entries(shiftMap)) {
+    if (translated.includes(enShift)) {
+      translated = translated.replace(enShift, bnShift);
+      break;
+    }
+  }
+
+  return translated;
+}
+
 interface I18nContextType {
   lang: Language;
   setLang: (lang: Language) => void;
   t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+  tClass: (name: string) => string;
 }
 
 const I18nContext = createContext<I18nContextType | null>(null);
@@ -464,7 +512,11 @@ export const I18nProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return getTranslation(lang, key, params);
   };
 
-  return <I18nContext.Provider value={{ lang, setLang, t }}>{children}</I18nContext.Provider>;
+  const tClass = (name: string): string => {
+    return formatClassName(name, lang);
+  };
+
+  return <I18nContext.Provider value={{ lang, setLang, t, tClass }}>{children}</I18nContext.Provider>;
 };
 
 export function useTranslation(): I18nContextType {
@@ -476,6 +528,7 @@ export function useTranslation(): I18nContextType {
       setLang: () => {},
       t: (key: TranslationKey, params?: Record<string, string | number>) =>
         getTranslation('en', key, params),
+      tClass: (name: string) => name,
     };
   }
   return ctx;

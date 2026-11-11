@@ -73,8 +73,25 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers()
     .ConfigureApiBehaviorOptions(options =>
     {
+        // Suppress framework default ProblemDetails transformation so client errors (e.g. 415 from UnsupportedMediaTypeResult)
+        // pass through to ErrorHandlingMiddleware with unstarted response body, matching unified error envelope.
+        options.SuppressMapClientErrors = true;
+
         options.InvalidModelStateResponseFactory = context =>
         {
+            var hasUnsupportedContentType = context.ModelState.Values
+                .SelectMany(v => v.Errors)
+                .Any(e => e.Exception is Microsoft.AspNetCore.Mvc.ModelBinding.UnsupportedContentTypeException);
+
+            if (hasUnsupportedContentType)
+            {
+                var unsupportedBody = new ErrorResponse(new ErrorDetail("UNSUPPORTED_MEDIA_TYPE", "The request Content-Type is not supported."));
+                return new ObjectResult(unsupportedBody)
+                {
+                    StatusCode = StatusCodes.Status415UnsupportedMediaType
+                };
+            }
+
             var errors = context.ModelState.Values
                 .SelectMany(v => v.Errors)
                 .Select(e => e.ErrorMessage)

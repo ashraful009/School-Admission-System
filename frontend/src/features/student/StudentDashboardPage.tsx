@@ -12,20 +12,18 @@ import {
 } from '../../shared/components';
 import {
   fetchClasses,
-  fetchMyHolds,
   createHold,
   type AdmissionClassDto,
-  type StudentHoldDto,
 } from '../../api/admissionApi';
-import { ApiClientError, getStoredStudentId } from '../../api/client';
+import { ApiClientError } from '../../api/client';
 import { useCountdown } from '../../shared/hooks/useCountdown';
+import { useActiveApplication } from '../../shared/hooks/useActiveApplication';
 import { useTranslation } from '../../shared/i18n';
 
 export const StudentDashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const studentId = getStoredStudentId();
-  const { t } = useTranslation();
+  const { t, tClass } = useTranslation();
 
   const [applyingClassId, setApplyingClassId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -43,52 +41,48 @@ export const StudentDashboardPage: React.FC = () => {
     refetchInterval: 5000,
   });
 
-  // Poll student's holds every 5 seconds (Requirement U3, A8)
+  // Shared active applications hook
   const {
-    data: myHolds,
+    activeApplication,
+    hasActiveApplication,
+    isHeld,
+    isConfirmed,
+    activeClassName,
+    activeHoldId,
+    getActiveHoldForClass,
     isLoading: holdsLoading,
     refetch: refetchHolds,
-  } = useQuery<StudentHoldDto[]>({
-    queryKey: ['myHolds', studentId],
-    queryFn: () => fetchMyHolds(studentId || undefined),
-    refetchInterval: 5000,
-    enabled: Boolean(studentId),
-  });
+  } = useActiveApplication();
 
   // Summary calculations (Correction 4: real sum of availableSeats)
   const totalClassesCount = classes?.length ?? 0;
   const totalAvailableSeats = classes?.reduce((sum, c) => sum + (c.availableSeats || 0), 0) ?? 0;
   const totalCapacitySeats = classes?.reduce((sum, c) => sum + (c.totalSeats || 0), 0) ?? 0;
 
-  // Active holds calculations (Correction 6: soonest-expiring HELD with "+N more", or "No active hold")
-  const activeHolds = (myHolds || [])
-    .filter((h) => h.status === 'HELD')
-    .filter((h) => {
-      const exp = Date.parse(h.expiresAt);
-      return !isNaN(exp) && exp > Date.now();
-    })
-    .sort((a, b) => Date.parse(a.expiresAt) - Date.parse(b.expiresAt));
-
-  const soonestHold = activeHolds[0] || null;
-  const additionalHoldsCount = activeHolds.length > 1 ? activeHolds.length - 1 : 0;
-
-  // Live timer for soonest hold
+  // Live timer for active HELD hold
   const { secondsLeft, formattedTime, isExpired: holdIsExpired } = useCountdown({
-    expiresAt: soonestHold?.expiresAt,
-    serverTime: soonestHold?.serverTime,
-    createdAt: soonestHold?.createdAt,
+    expiresAt: isHeld ? activeApplication?.expiresAt : undefined,
+    serverTime: isHeld ? activeApplication?.serverTime : undefined,
+    createdAt: isHeld ? activeApplication?.createdAt : undefined,
+    onExpire: () => {
+      refetchHolds();
+      refetchClasses();
+    },
   });
 
-  // Refetch holds and classes when soonest hold reaches zero
+  // Refetch holds and classes when hold reaches zero
   useEffect(() => {
-    if (soonestHold && holdIsExpired) {
+    if (activeApplication && isHeld && holdIsExpired) {
       refetchHolds();
       refetchClasses();
     }
-  }, [soonestHold, holdIsExpired, refetchHolds, refetchClasses]);
+  }, [activeApplication, isHeld, holdIsExpired, refetchHolds, refetchClasses]);
 
-  // Apply handler (A4)
+  // Apply handler (A4) with single in-flight submission guard (Task 2)
   const handleApply = async (classId: string) => {
+    // Guard: Prevent multiple simultaneous dashboard apply requests
+    if (applyingClassId) return;
+
     setApplyingClassId(classId);
     setErrorMessage(null);
 
@@ -125,6 +119,26 @@ export const StudentDashboardPage: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Active Application Banner (Requirement S21, D16) */}
+      {hasActiveApplication && activeApplication && (
+        <Banner
+          variant={isConfirmed ? 'success' : 'info'}
+          title={isConfirmed ? t('status_confirmed') : t('status_held')}
+          message={
+            isConfirmed
+              ? t('banner_confirmed_enrolled', { class: tClass(activeClassName || '') })
+              : t('banner_active_application', { class: tClass(activeClassName || '') })
+          }
+          action={
+            <Link to={`/holds/${activeHoldId}`}>
+              <Button size="sm" variant={isConfirmed ? 'primary' : 'secondary'}>
+                {t('view_application')}
+              </Button>
+            </Link>
+          }
+        />
+      )}
 
       {/* Global / Dismissible Application Error Banner */}
       {errorMessage && (
@@ -214,17 +228,24 @@ export const StudentDashboardPage: React.FC = () => {
               </div>
             </Card>
 
-            {/* Tile 3: Active Hold Tile (Mockup Correction 6) */}
+            {/* Tile 3: Active Hold Tile (Mockup Correction 6, S21: single active application, no +N more) */}
             <Card padding="md" className="flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <span className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-[#7A7396]">
                   {t('tile_active_hold')}
                 </span>
-                {soonestHold ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E4DBF7] text-[#4B22A6]">
-                    <span className="w-2 h-2 rounded-full bg-[#683DD0] animate-pulse" />
-                    {t('status_held')}
-                  </span>
+                {hasActiveApplication ? (
+                  isConfirmed ? (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#D9F0E3] text-[#1D7A4A]">
+                      <span className="w-2 h-2 rounded-full bg-[#1D7A4A]" />
+                      {t('status_confirmed')}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-[#E4DBF7] text-[#4B22A6]">
+                      <span className="w-2 h-2 rounded-full bg-[#683DD0] animate-pulse" />
+                      {t('status_held')}
+                    </span>
+                  )
                 ) : (
                   <div className="w-9 h-9 rounded-xl bg-[#E3DFED] flex items-center justify-center text-[#7A7396]">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -240,44 +261,47 @@ export const StudentDashboardPage: React.FC = () => {
               </div>
 
               <div className="mt-3">
-                {soonestHold ? (
+                {hasActiveApplication && activeApplication ? (
                   <div className="flex flex-col gap-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-bold text-[#241A3F] truncate text-base font-['Poppins']" title={soonestHold.className}>
-                        {soonestHold.className}
-                      </div>
-                      {additionalHoldsCount > 0 && (
-                        <Link
-                          to="/my-applications"
-                          className="shrink-0 text-xs font-semibold px-2 py-0.5 rounded-lg bg-[#EEEAF6] text-[#683DD0] hover:underline"
-                        >
-                          +{additionalHoldsCount}
-                        </Link>
-                      )}
+                    <div className="font-bold text-[#241A3F] truncate text-base font-['Poppins']" title={tClass(activeApplication.className)}>
+                      {tClass(activeApplication.className)}
                     </div>
 
-                    <div className="flex items-center justify-between gap-3 pt-1">
-                      <div className="flex items-center gap-2">
-                        <CountdownRing
-                          secondsLeft={secondsLeft}
-                          totalSeconds={600}
-                          size={46}
-                          strokeWidth={4}
-                        />
-                        <div>
-                          <div className="text-lg font-bold font-mono text-[#683DD0] leading-none">
-                            {formattedTime}
+                    {isHeld ? (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <div className="flex items-center gap-2">
+                          <CountdownRing
+                            secondsLeft={secondsLeft}
+                            totalSeconds={600}
+                            size={46}
+                            strokeWidth={4}
+                          />
+                          <div>
+                            <div className="text-lg font-bold font-mono text-[#683DD0] leading-none">
+                              {formattedTime}
+                            </div>
+                            <span className="text-[11px] text-[#7A7396]">{t('hold_time_left')}</span>
                           </div>
-                          <span className="text-[11px] text-[#7A7396]">{t('hold_time_left')}</span>
                         </div>
-                      </div>
 
-                      <Link to={`/holds/${soonestHold.holdId}`}>
-                        <Button size="sm" variant="primary">
-                          {t('active_hold_view_pay')}
-                        </Button>
-                      </Link>
-                    </div>
+                        <Link to={`/holds/${activeApplication.holdId}`}>
+                          <Button size="sm" variant="primary">
+                            {t('active_hold_view_pay')}
+                          </Button>
+                        </Link>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <span className="text-xs font-medium text-[#1D7A4A]">
+                          {t('status_confirmed')}
+                        </span>
+                        <Link to={`/holds/${activeApplication.holdId}`}>
+                          <Button size="sm" variant="secondary">
+                            {t('view_application')}
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div>
@@ -329,14 +353,12 @@ export const StudentDashboardPage: React.FC = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {classes.map((admissionClass) => {
-              // Check if student already holds or confirmed in this class (Mockup Correction 9, R3)
-              const alreadyApplied = (myHolds || []).some(
-                (h) =>
-                  h.classId === admissionClass.id &&
-                  (h.status === 'HELD' || h.status === 'CONFIRMED')
-              );
+              const activeHoldForClass = getActiveHoldForClass(admissionClass.id);
+              const hasActiveInThisClass = Boolean(activeHoldForClass);
               const isSeatsFull = admissionClass.availableSeats <= 0;
               const isApplying = applyingClassId === admissionClass.id;
+              const isSubmittingAny = Boolean(applyingClassId);
+              const isOtherApplying = isSubmittingAny && !isApplying;
 
               return (
                 <Card
@@ -353,7 +375,7 @@ export const StudentDashboardPage: React.FC = () => {
                         title={`View details for ${admissionClass.name}`}
                       >
                         <h3 className="text-lg font-bold font-['Poppins'] text-[#241A3F] leading-tight group-hover:text-[#4B22A6] transition-colors">
-                          {admissionClass.name}
+                          {tClass(admissionClass.name)}
                         </h3>
                       </Link>
                     </div>
@@ -398,18 +420,26 @@ export const StudentDashboardPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Card Action Button */}
+                  {/* Card Action Button (Section 2.5 & 2.6: per-class restriction) */}
                   <div className="pt-2">
-                    {alreadyApplied ? (
-                      <Button
-                        disabled
-                        variant="secondary"
-                        fullWidth
-                        className="cursor-not-allowed opacity-75"
-                        title="You already have an active hold or confirmed admission in this class"
-                      >
-                        {t('btn_already_applied')}
-                      </Button>
+                    {hasActiveInThisClass && activeHoldForClass ? (
+                      <div className="flex flex-col gap-1.5">
+                        <Button
+                          disabled
+                          variant="secondary"
+                          fullWidth
+                          className="cursor-not-allowed opacity-75"
+                          title={t('btn_already_applied')}
+                        >
+                          {t('btn_already_applied')}
+                        </Button>
+                        <Link
+                          to={`/holds/${activeHoldForClass.holdId}`}
+                          className="text-xs text-center font-semibold text-[#683DD0] hover:underline py-0.5"
+                        >
+                          {t('view_application')} →
+                        </Link>
+                      </div>
                     ) : isSeatsFull ? (
                       <Button
                         disabled
@@ -425,6 +455,7 @@ export const StudentDashboardPage: React.FC = () => {
                         variant="primary"
                         fullWidth
                         isLoading={isApplying}
+                        disabled={isOtherApplying}
                         onClick={() => handleApply(admissionClass.id)}
                       >
                         {t('btn_apply_seat')}

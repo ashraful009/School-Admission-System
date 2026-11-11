@@ -80,7 +80,7 @@ All settings have sensible defaults configured in `docker-compose.yml` and `.env
 ## 5. Running Automated Tests
 
 ### Backend Automated Test Suite (Docker-only)
-The project includes 50 comprehensive automated xUnit tests covering high-concurrency races (1,000 simultaneous requests on 10 seats), double-submit idempotency, hold lifecycle transitions (hold, confirm, cancel, expire), input validation table tests, and expired-hold read consistency.
+The project currently includes 88 comprehensive automated xUnit tests (verified suite) covering high-concurrency races (1,000 simultaneous requests on 10 seats), double-submit idempotency, hold lifecycle transitions (hold, confirm, cancel, expire), input validation table tests, and expired-hold read consistency.
 
 Run the test suite inside Docker without needing .NET installed locally:
 
@@ -91,13 +91,13 @@ docker compose --profile tests run --rm tests
 *Output summary:*
 ```text
 Test Run Successful.
-Total tests: 50
-     Passed: 50
+Total tests: 88
+     Passed: 88
  Total time: ~11 Seconds
 ```
 
 ### Frontend Unit Tests (Vitest + React Testing Library, bonus X2)
-Small, fast tests (about 2 s) for identity validation (17-digit rule and the Identity page), the countdown hook (server clock-skew correction and the flip to EXPIRED at zero) and the error-code to plain-language message mapping in the API client:
+Comprehensive test suite across 12 test files (currently 103 verified tests) covering identity validation (17-digit rule and the Identity page), the countdown hook (server clock-skew correction and the flip to EXPIRED at zero), the active application hook, student flows, class details, hold lifecycle, application history, admin dashboard, class creation and management, and error-code to plain-language message mapping in the API client:
 
 ```bash
 cd frontend
@@ -107,8 +107,8 @@ npm test
 
 *Output summary:*
 ```text
- Test Files  3 passed (3)
-      Tests  28 passed (28)
+ Test Files  12 passed (12)
+      Tests  103 passed (103)
 ```
 
 ### Frontend Build Verification
@@ -176,6 +176,9 @@ CONSTRAINT ck_classes_counters_nonneg CHECK (held_seats >= 0 AND confirmed_seats
 CONSTRAINT ck_classes_capacity        CHECK (held_seats + confirmed_seats <= total_seats)
 ```
 These database-level `CHECK` constraints guarantee that capacity can never be exceeded under any circumstances, even across multiple API processes.
+
+### Per-Class Active Application (Section 2.5 & 2.6, Decision D17)
+A student cannot have more than one active (`HELD` unexpired or `CONFIRMED` admission) application in the SAME class at the same time. However, the same student MUST be allowed to have active applications in DIFFERENT classes simultaneously. This is strictly enforced in PostgreSQL by a partial unique index (`ux_reservations_active_per_class ON reservations (class_id, student_id) WHERE status IN ('HELD','CONFIRMED')`). Attempting to hold another seat in the same class returns `409 ALREADY_APPLIED_IN_CLASS`. Once a hold is cancelled or expires, the student can apply again to that class.
 
 ### Multi-Process Concurrency (X1)
 Because concurrency control and seat invariants are enforced directly within PostgreSQL via row locks, conditional updates, and partial unique indexes, running multiple backend replicas behind a load balancer is fully safe by design without distributed locks. No seat or hold state lives in process memory, so a second process sees and changes exactly the same rows, and the expiry workers of both processes use `FOR UPDATE SKIP LOCKED` so a hold is released once. This is demonstrated by the two-process test in section 5 (exactly 10 successes across ports 8080 and 8081 on a 10-seat class); details in `ASSUMPTIONS.md` section 1.4.

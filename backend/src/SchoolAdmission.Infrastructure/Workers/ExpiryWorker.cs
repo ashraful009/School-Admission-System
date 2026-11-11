@@ -97,7 +97,7 @@ public class ExpiryWorker : BackgroundService
                         FROM reservations
                         WHERE status = 'HELD' 
                           AND expires_at <= clock_timestamp()
-                        ORDER BY id
+                        ORDER BY class_id, id
                         LIMIT 500
                         FOR UPDATE SKIP LOCKED
                     ),

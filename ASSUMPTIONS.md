@@ -6,19 +6,26 @@ This document records all architectural choices, assumptions made where the brie
 
 ## 1. Core Concurrency & Business Rules
 
-### 1.1 The Per-Class Rule (Literal Reading of the Requirement)
-* **Requirement text**: "A student cannot have more than one active hold or confirmed admission in the same class at the same time."
-* **Decision (D2)**: This rule is interpreted strictly **per class**, not globally across the entire school. Classes are completely independent:
-  - A student may legitimately hold or confirm seats in different classes (e.g., "Class 6 - Morning Shift" and "Class 7 - Morning Shift", or "Class 6 - Morning Shift" and "Class 6 - Day Shift").
-  - A student may not hold more than one seat simultaneously within the same class.
-  - If a student's hold expires or is cancelled, they may apply to that class again.
-* **Database Enforcement**: Enforced at the database level by a partial unique index:
+### 1.1 Class-Scoped Active Application Per Student (Decision D17, Superseding D16)
+* **Requirement text**: "A student cannot have more than one active hold or confirmed admission in the same class at the same time. However, the same student MUST be allowed to have active applications in DIFFERENT classes simultaneously."
+* **Decision (D17, supersedes D16)**: A student may have at most **ONE active application** (meaning one unexpired `HELD` hold or one `CONFIRMED` admission) in the **SAME class**:
+  - The same student is explicitly permitted to have active applications in different classes simultaneously (e.g. Class 6 Morning, Class 6 Day, Class 7 Morning).
+  - Attempting to create a second active hold in the same class returns `409 ALREADY_APPLIED_IN_CLASS`.
+  - Once a hold in a class is cancelled or expires, the student may reapply to that class.
+* **Database Enforcement**: Enforced unconditionally at the database level by a partial unique index on `(class_id, student_id)`:
   ```sql
   CREATE UNIQUE INDEX ux_reservations_active_per_class
     ON reservations (class_id, student_id)
     WHERE status IN ('HELD', 'CONFIRMED');
   ```
-  Hitting this constraint returns `409 ALREADY_APPLIED_IN_CLASS`.
+  Because enforcement lives in PostgreSQL, it holds safely under extreme concurrency and across multiple backend processes (bonus X1).
+* **Create-Hold Order & Deadlock Prevention**:
+  1. Validate class exists (404).
+  2. Reclaim expired HELD rows of this class, updating `classes.held_seats`.
+  3. Pre-check: if the student already holds or confirmed an application in this class, return `409 ALREADY_APPLIED_IN_CLASS`.
+  4. Conditional seat update (`held_seats = held_seats + 1 WHERE held_seats + confirmed_seats < total_seats`).
+  5. Insert reservation. On unique violation (SQLSTATE 23505 race on `(class_id, student_id)`), roll back and return `409 ALREADY_APPLIED_IN_CLASS`.
+  6. On deadlock or serialization failure (SQLSTATE 40P01, 40001), retry the whole transaction once before failing.
 
 ### 1.2 First-Come, First-Served (FCFS) Definition
 * **Decision (D5)**: FCFS is implemented without an asynchronous queue or lottery mechanism:
@@ -61,7 +68,7 @@ This document records all architectural choices, assumptions made where the brie
 | # | Topic | Decision | Reason |
 |---|-------|----------|--------|
 | **D1** | ORM & Data Access | EF Core (Npgsql) for schema migrations, entities, and read queries; raw SQL via ADO.NET for atomic conditional updates. | Combines EF Core migrations and productivity with raw SQL guarantees for high-concurrency conditional seat updates. |
-| **D2** | Active Hold Rule | Per-class partial unique index on `(class_id, student_id) WHERE status IN ('HELD','CONFIRMED')`. | Respects specification text verbatim. Avoids blocking students from applying to separate classes/shifts. |
+| **D17** (supersedes D16) | Per-Class Active Application | Partial unique index on `(class_id, student_id) WHERE status IN ('HELD','CONFIRMED')`. | Enforces at most one active application in the SAME class; allows simultaneous active applications in DIFFERENT classes per Section 2.5 and 2.6 specification. |
 | **D3** | Shift Modeling | Shift is not an independent DB column; UI composes class name from class and shift inputs (`Class 6 - Morning Shift`). | Adheres to API contract (`POST /classes` accepts `{ name, totalSeats }`). |
 | **D4** | Student Identifier | 17-digit birth registration number validated with `^\d{17}$`, stored as `varchar(17)`. | Matches official Bangladesh birth registration numbering standard; prevents numeric overflow issues with 64-bit integers. |
 | **D5** | FCFS Implementation | Atomic single-statement conditional `UPDATE` on class row; commit order equals grant order. | High throughput, deterministic ordering, zero queuing complexity for synchronous REST endpoints. |

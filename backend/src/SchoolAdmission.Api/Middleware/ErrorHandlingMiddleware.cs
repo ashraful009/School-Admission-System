@@ -33,7 +33,7 @@ public class ErrorHandlingMiddleware
                 }
                 else if (context.Response.StatusCode == StatusCodes.Status415UnsupportedMediaType)
                 {
-                    await WriteErrorResponseAsync(context, StatusCodes.Status415UnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "Content-Type must be application/json.");
+                    await WriteErrorResponseAsync(context, StatusCodes.Status415UnsupportedMediaType, "UNSUPPORTED_MEDIA_TYPE", "The request Content-Type is not supported.");
                 }
             }
         }

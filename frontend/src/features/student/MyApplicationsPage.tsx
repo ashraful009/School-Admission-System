@@ -17,12 +17,14 @@ import {
 } from '../../api/admissionApi';
 import { ApiClientError, getStoredStudentId } from '../../api/client';
 import { useCountdown } from '../../shared/hooks/useCountdown';
+import { useActiveApplication } from '../../shared/hooks/useActiveApplication';
 import { formatDateTime } from '../../shared/utils/date';
 import { useTranslation } from '../../shared/i18n';
 
 interface ApplicationRowProps {
   hold: StudentHoldDto;
   isActionRunning: boolean;
+  hasActiveInClass: boolean;
   onPay: (holdId: string) => Promise<void>;
   onCancel: (holdId: string) => Promise<void>;
   onExpired: () => void;
@@ -31,12 +33,13 @@ interface ApplicationRowProps {
 const ApplicationRow: React.FC<ApplicationRowProps> = ({
   hold,
   isActionRunning,
+  hasActiveInClass,
   onPay,
   onCancel,
   onExpired,
 }) => {
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, tClass } = useTranslation();
   const [isPaying, setIsPaying] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -82,6 +85,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
 
   const handleApplyAgainClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (hasActiveInClass) return;
     navigate(`/classes/${hold.classId}`);
   };
 
@@ -100,7 +104,7 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
         <div className="flex flex-col gap-1">
           <div className="flex items-center gap-3">
             <h2 className="text-base sm:text-lg font-bold font-['Poppins'] text-[#241A3F]">
-              {hold.className}
+              {tClass(hold.className)}
             </h2>
           </div>
 
@@ -182,23 +186,43 @@ const ApplicationRow: React.FC<ApplicationRowProps> = ({
           )}
 
           {effectiveStatus === 'EXPIRED' && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleApplyAgainClick}
-            >
-              {t('hold_apply_again')}
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={hasActiveInClass}
+                className={hasActiveInClass ? 'cursor-not-allowed opacity-60' : ''}
+                title={hasActiveInClass ? t('cannot_apply_active_exists') : undefined}
+                onClick={handleApplyAgainClick}
+              >
+                {t('hold_apply_again')}
+              </Button>
+              {hasActiveInClass && (
+                <span className="text-[11px] text-[#7A7396]">
+                  {t('cannot_apply_active_exists')}
+                </span>
+              )}
+            </div>
           )}
 
           {effectiveStatus === 'CANCELLED' && (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleApplyAgainClick}
-            >
-              {t('hold_apply_again')}
-            </Button>
+            <div className="flex flex-col items-end gap-1">
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={hasActiveInClass}
+                className={hasActiveInClass ? 'cursor-not-allowed opacity-60' : ''}
+                title={hasActiveInClass ? t('cannot_apply_active_exists') : undefined}
+                onClick={handleApplyAgainClick}
+              >
+                {t('hold_apply_again')}
+              </Button>
+              {hasActiveInClass && (
+                <span className="text-[11px] text-[#7A7396]">
+                  {t('cannot_apply_active_exists')}
+                </span>
+              )}
+            </div>
           )}
 
           {effectiveStatus === 'CONFIRMED' && (
@@ -242,6 +266,9 @@ export const MyApplicationsPage: React.FC = () => {
     enabled: Boolean(studentId),
   });
 
+  // Shared active applications hook
+  const { hasActiveHoldForClass } = useActiveApplication();
+
   // Action: Pay Fee directly from the list
   const handlePay = async (holdId: string) => {
     setIsActionRunning(true);
@@ -264,6 +291,7 @@ export const MyApplicationsPage: React.FC = () => {
           );
         }
       );
+      await queryClient.invalidateQueries({ queryKey: ['myHolds'] });
       await queryClient.invalidateQueries({ queryKey: ['classes'] });
       await queryClient.invalidateQueries({ queryKey: ['hold', holdId] });
     } catch (err: unknown) {
@@ -299,6 +327,7 @@ export const MyApplicationsPage: React.FC = () => {
           );
         }
       );
+      await queryClient.invalidateQueries({ queryKey: ['myHolds'] });
       await queryClient.invalidateQueries({ queryKey: ['classes'] });
       await queryClient.invalidateQueries({ queryKey: ['hold', holdId] });
     } catch (err: unknown) {
@@ -391,10 +420,11 @@ export const MyApplicationsPage: React.FC = () => {
               key={app.holdId}
               hold={app}
               isActionRunning={isActionRunning}
+              hasActiveInClass={hasActiveHoldForClass(app.classId)}
               onPay={handlePay}
               onCancel={handleCancel}
               onExpired={() => {
-                refetch();
+                queryClient.invalidateQueries({ queryKey: ['myHolds'] });
                 queryClient.invalidateQueries({ queryKey: ['classes'] });
               }}
             />

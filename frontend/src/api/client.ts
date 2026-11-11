@@ -1,5 +1,6 @@
 import { getApiUrl } from './config';
-import { ERROR_MESSAGES, getErrorMessage } from '../shared/messages';
+import { getErrorMessage } from '../shared/messages';
+import type { Language } from '../shared/i18n';
 
 export const STUDENT_ID_KEY = 'school_admission_student_id';
 
@@ -56,6 +57,14 @@ export class ApiClientError extends Error {
     this.status = status;
     this.code = code;
     this.rawMessage = rawMessage;
+  }
+
+  /**
+   * Returns localized user-facing message for the given or current language.
+   * Ensures raw backend messages never override localized messages.
+   */
+  public getUserMessage(lang?: Language): string {
+    return getErrorMessage(this.code, this.message, lang);
   }
 }
 
@@ -174,9 +183,16 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
         // Response was not JSON
       }
 
-      const code = errorBody?.error?.code || (res.status === 404 ? 'NOT_FOUND' : 'UNKNOWN_ERROR');
+      const code = errorBody?.error?.code || (res.status === 404 ? 'NOT_FOUND' : (res.status >= 500 ? 'INTERNAL_ERROR' : 'UNKNOWN_ERROR'));
       const rawMessage = errorBody?.error?.message || res.statusText || 'Request failed';
-      const userMessage = getErrorMessage(code, rawMessage);
+
+      // Internal errors and technical exceptions must never leak raw details to users
+      const isInternal =
+        res.status >= 500 ||
+        code === 'INTERNAL_ERROR' ||
+        /exception|stack trace|npgsql|sql/i.test(rawMessage);
+      const safeFallback = isInternal ? undefined : rawMessage;
+      const userMessage = getErrorMessage(code, safeFallback);
 
       throw new ApiClientError(res.status, code, userMessage, rawMessage);
     }
@@ -189,7 +205,7 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
 
     // Network / connection error (e.g. failed fetch, connection refused)
     notifyServerStatus(true);
-    const networkMsg = ERROR_MESSAGES.NETWORK_ERROR;
+    const networkMsg = getErrorMessage('NETWORK_ERROR');
     throw new ApiClientError(0, 'NETWORK_ERROR', networkMsg, err instanceof Error ? err.message : 'Network error');
   }
 }

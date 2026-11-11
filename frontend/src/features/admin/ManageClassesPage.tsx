@@ -15,7 +15,7 @@ import { useTranslation } from '../../shared/i18n';
 
 export const ManageClassesPage: React.FC = () => {
   const location = useLocation();
-  const { t } = useTranslation();
+  const { t, tClass } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [successNotice, setSuccessNotice] = useState<string | null>(
     (location.state as { successMessage?: string })?.successMessage || null
@@ -199,7 +199,7 @@ export const ManageClassesPage: React.FC = () => {
                             className="font-bold text-[#241A3F] hover:text-[#4B22A6] transition-colors font-['Poppins']"
                             title="View student class details"
                           >
-                            {item.name}
+                            {tClass(item.name)}
                           </Link>
                           <span className="text-xs text-[#7A7396] mt-0.5">
                             Hold duration: {Math.round(item.holdDurationSeconds / 60)} min

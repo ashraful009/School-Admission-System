@@ -14,13 +14,13 @@ namespace SchoolAdmission.Tests.Fixtures;
 public class ApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _connectionString;
-    private readonly int _holdDurationSeconds;
+    private readonly int? _holdDurationSeconds;
     private readonly bool _expiryWorkerEnabled;
     private readonly int _expiryIntervalMs;
 
     public ApiFactory(
         string connectionString, 
-        int holdDurationSeconds = 600, 
+        int? holdDurationSeconds = 600, 
         bool expiryWorkerEnabled = false,
         int expiryIntervalMs = 500)
     {
@@ -34,22 +34,31 @@ public class ApiFactory : WebApplicationFactory<Program>
     {
         builder.ConfigureAppConfiguration((_, config) =>
         {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
+            var configDict = new Dictionary<string, string?>
             {
                 ["ConnectionStrings:Default"] = _connectionString,
-                ["HOLD_DURATION_SECONDS"] = _holdDurationSeconds.ToString(),
                 ["EXPIRY_WORKER_ENABLED"] = _expiryWorkerEnabled.ToString().ToLowerInvariant(),
                 ["EXPIRY_INTERVAL_MILLISECONDS"] = _expiryIntervalMs.ToString()
-            });
+            };
+
+            if (_holdDurationSeconds.HasValue)
+            {
+                configDict["HOLD_DURATION_SECONDS"] = _holdDurationSeconds.Value.ToString();
+            }
+
+            config.AddInMemoryCollection(configDict);
         });
 
         builder.ConfigureTestServices(services =>
         {
-            // Configure AdmissionOptions for this test factory
-            services.Configure<AdmissionOptions>(options =>
+            // Configure AdmissionOptions for this test factory only if explicitly provided
+            if (_holdDurationSeconds.HasValue)
             {
-                options.HoldDurationSeconds = _holdDurationSeconds;
-            });
+                services.Configure<AdmissionOptions>(options =>
+                {
+                    options.HoldDurationSeconds = _holdDurationSeconds.Value;
+                });
+            }
 
             // If expiry worker is disabled for this test, remove the hosted service
             if (!_expiryWorkerEnabled)

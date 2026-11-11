@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Npgsql;
 using SchoolAdmission.Application.Dtos;
 using SchoolAdmission.Application.Errors;
@@ -11,193 +12,224 @@ namespace SchoolAdmission.Infrastructure.Stores;
 public class HoldStore : IHoldStore
 {
     private readonly AppDbContext _dbContext;
+    private readonly ILogger<HoldStore>? _logger;
 
-    public HoldStore(AppDbContext dbContext)
+    public HoldStore(AppDbContext dbContext, ILogger<HoldStore>? logger = null)
     {
         _dbContext = dbContext;
+        _logger = logger;
     }
 
     public async Task<HoldResponse> CreateHoldAsync(Guid classId, string studentId, int holdDurationSeconds, CancellationToken cancellationToken = default)
     {
-        var connection = _dbContext.Database.GetDbConnection();
-        if (connection.State != ConnectionState.Open)
+        const int maxAttempts = 2;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            await connection.OpenAsync(cancellationToken);
-        }
-
-        await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
-
-        try
-        {
-            // Step 1: Validate class existence (and fetch class name for response)
-            string className;
-            await using (var checkClassCmd = connection.CreateCommand())
+            var connection = _dbContext.Database.GetDbConnection();
+            if (connection.State != ConnectionState.Open)
             {
-                checkClassCmd.Transaction = tx;
-                checkClassCmd.CommandText = "SELECT name FROM classes WHERE id = @id;";
-                AddParameter(checkClassCmd, "@id", classId);
-
-                var result = await checkClassCmd.ExecuteScalarAsync(cancellationToken);
-                if (result == null || result is DBNull)
-                {
-                    await tx.RollbackAsync(cancellationToken);
-                    throw new NotFoundException($"Class with id '{classId}' was not found.");
-                }
-
-                className = (string)result;
+                await connection.OpenAsync(cancellationToken);
             }
 
-            // Step 2: Reclaim expired HELD rows of this class in one statement using clock_timestamp() (D11)
-            await using (var reclaimCmd = connection.CreateCommand())
-            {
-                reclaimCmd.Transaction = tx;
-                reclaimCmd.CommandText = @"
-                    WITH expired AS (
-                        UPDATE reservations
-                        SET status = 'EXPIRED', expired_at = clock_timestamp()
-                        WHERE class_id = @id 
-                          AND status = 'HELD' 
-                          AND expires_at <= clock_timestamp()
-                        RETURNING id
-                    )
-                    UPDATE classes
-                    SET held_seats = held_seats - (SELECT COUNT(*) FROM expired)
-                    WHERE id = @id AND (SELECT COUNT(*) FROM expired) > 0;
-                ";
-                AddParameter(reclaimCmd, "@id", classId);
-                await reclaimCmd.ExecuteNonQueryAsync(cancellationToken);
-            }
+            await using var tx = await connection.BeginTransactionAsync(IsolationLevel.ReadCommitted, cancellationToken);
 
-            // Step 3: Pre-check (D13) - verify if the student already has an active HELD or CONFIRMED hold in this class.
-            // Checking before grabbing a seat ensures that a student who already applied receives 409 ALREADY_APPLIED_IN_CLASS
-            // even if the class is completely full.
-            await using (var preCheckCmd = connection.CreateCommand())
+            try
             {
-                preCheckCmd.Transaction = tx;
-                preCheckCmd.CommandText = @"
-                    SELECT 1 FROM reservations 
-                    WHERE class_id = @id 
-                      AND student_id = @studentId 
-                      AND status IN ('HELD', 'CONFIRMED')
-                    LIMIT 1;
-                ";
-                AddParameter(preCheckCmd, "@id", classId);
-                AddParameter(preCheckCmd, "@studentId", studentId);
-
-                var exists = await preCheckCmd.ExecuteScalarAsync(cancellationToken);
-                if (exists != null && exists is not DBNull)
+                // Step 1: Validate class existence (and fetch class name for response / 404 if not found)
+                string className;
+                await using (var checkClassCmd = connection.CreateCommand())
                 {
-                    await tx.RollbackAsync(cancellationToken);
-                    throw new ConflictException(
-                        "ALREADY_APPLIED_IN_CLASS",
-                        "Student already has an active or confirmed application for this class."
-                    );
-                }
-            }
+                    checkClassCmd.Transaction = tx;
+                    checkClassCmd.CommandText = "SELECT name FROM classes WHERE id = @id;";
+                    AddParameter(checkClassCmd, "@id", classId);
 
-            // Step 4: Conditional seat UPDATE (atomic seat acquisition)
-            //
-            // Why conditional UPDATE instead of SELECT ... FOR UPDATE:
-            // SELECT ... FOR UPDATE acquires an explicit row lock, forces all competing transactions
-            // to wait, reads the current count into application memory, and then requires a second UPDATE statement.
-            // Under high concurrency, this causes severe lock contention, increases transaction latency, and risks
-            // retry storms and deadlocks.
-            // In contrast, an atomic conditional UPDATE (`WHERE id = @id AND (held_seats + confirmed_seats) < total_seats`)
-            // delegates capacity evaluation directly to PostgreSQL's row-level lock. Under READ COMMITTED isolation,
-            // competing transactions wait for the locked row, and upon waking, PostgreSQL automatically re-evaluates
-            // the WHERE clause against the newly committed row state. If total capacity is reached, 0 rows are affected
-            // immediately with zero application-level locking overhead, guaranteeing no overselling and maximum throughput.
-            await using (var seatUpdateCmd = connection.CreateCommand())
-            {
-                seatUpdateCmd.Transaction = tx;
-                seatUpdateCmd.CommandText = @"
-                    UPDATE classes
-                    SET held_seats = held_seats + 1
-                    WHERE id = @id AND (held_seats + confirmed_seats) < total_seats;
-                ";
-                AddParameter(seatUpdateCmd, "@id", classId);
-
-                var rowsAffected = await seatUpdateCmd.ExecuteNonQueryAsync(cancellationToken);
-                if (rowsAffected == 0)
-                {
-                    await tx.RollbackAsync(cancellationToken);
-                    throw new ConflictException("NO_SEATS_AVAILABLE", "No seats available in this class.");
-                }
-            }
-
-            // Step 5: INSERT the reservation record
-            // Expiry is calculated using clock_timestamp() truncated to second precision (D11).
-            // A race condition where two simultaneous requests for the same student pass Step 3 is caught here
-            // by the partial unique index `ux_reservations_active_per_class`, which raises SQLSTATE 23505.
-            string holdId;
-            string createdAt;
-            string expiresAt;
-            string serverTime;
-
-            await using (var insertCmd = connection.CreateCommand())
-            {
-                insertCmd.Transaction = tx;
-                insertCmd.CommandText = @"
-                    INSERT INTO reservations (
-                        id, class_id, student_id, status, created_at, expires_at
-                    )
-                    SELECT 
-                        gen_random_uuid(),
-                        @id,
-                        @studentId,
-                        'HELD',
-                        ts,
-                        ts + make_interval(secs => @holdDurationSeconds)
-                    FROM (SELECT date_trunc('second', clock_timestamp()) AS ts) t
-                    RETURNING id, created_at, expires_at, date_trunc('second', clock_timestamp()) AS server_time;
-                ";
-                AddParameter(insertCmd, "@id", classId);
-                AddParameter(insertCmd, "@studentId", studentId);
-                AddParameter(insertCmd, "@holdDurationSeconds", holdDurationSeconds);
-
-                try
-                {
-                    await using var reader = await insertCmd.ExecuteReaderAsync(cancellationToken);
-                    if (!await reader.ReadAsync(cancellationToken))
+                    var result = await checkClassCmd.ExecuteScalarAsync(cancellationToken);
+                    if (result == null || result is DBNull)
                     {
-                        throw new InvalidOperationException("Failed to insert reservation record.");
+                        await tx.RollbackAsync(cancellationToken);
+                        throw new NotFoundException($"Class with id '{classId}' was not found.");
                     }
 
-                    holdId = reader.GetGuid(0).ToString();
-                    createdAt = reader.GetFieldValue<DateTimeOffset>(1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
-                    expiresAt = reader.GetFieldValue<DateTimeOffset>(2).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
-                    serverTime = reader.GetFieldValue<DateTimeOffset>(3).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+                    className = (string)result;
                 }
-                catch (PostgresException ex) when (ex.SqlState == "23505")
+
+                // Step 2: Reclaim expired HELD rows of THIS class.
+                // Decrement held_seats by exactly the number reclaimed for this class.
+                int reclaimedCount = 0;
+                await using (var reclaimCmd = connection.CreateCommand())
                 {
-                    await tx.RollbackAsync(cancellationToken);
-                    throw new ConflictException(
-                        "ALREADY_APPLIED_IN_CLASS",
-                        "Student already has an active or confirmed application for this class."
-                    );
+                    reclaimCmd.Transaction = tx;
+                    reclaimCmd.CommandText = @"
+                        WITH expired AS (
+                            UPDATE reservations
+                            SET status = 'EXPIRED', expired_at = clock_timestamp()
+                            WHERE class_id = @id 
+                              AND status = 'HELD' 
+                              AND expires_at <= clock_timestamp()
+                            RETURNING id
+                        )
+                        SELECT COUNT(*)::int AS cnt
+                        FROM expired;
+                    ";
+                    AddParameter(reclaimCmd, "@id", classId);
+
+                    var scalar = await reclaimCmd.ExecuteScalarAsync(cancellationToken);
+                    if (scalar != null && scalar is not DBNull)
+                    {
+                        reclaimedCount = Convert.ToInt32(scalar);
+                    }
                 }
+
+                if (reclaimedCount > 0)
+                {
+                    await using var updateClassCmd = connection.CreateCommand();
+                    updateClassCmd.Transaction = tx;
+                    updateClassCmd.CommandText = @"
+                        UPDATE classes
+                        SET held_seats = held_seats - @cnt
+                        WHERE id = @id;
+                    ";
+                    AddParameter(updateClassCmd, "@cnt", reclaimedCount);
+                    AddParameter(updateClassCmd, "@id", classId);
+                    await updateClassCmd.ExecuteNonQueryAsync(cancellationToken);
+                }
+
+                // Step 3: Pre-check, before taking a seat:
+                // If the student has a CONFIRMED row or an unexpired HELD row in THIS class,
+                // return 409 ALREADY_APPLIED_IN_CLASS.
+                await using (var preCheckCmd = connection.CreateCommand())
+                {
+                    preCheckCmd.Transaction = tx;
+                    preCheckCmd.CommandText = @"
+                        SELECT 1
+                        FROM reservations
+                        WHERE class_id = @id
+                          AND student_id = @studentId 
+                          AND (status = 'CONFIRMED' OR (status = 'HELD' AND expires_at > clock_timestamp()))
+                        LIMIT 1;
+                    ";
+                    AddParameter(preCheckCmd, "@id", classId);
+                    AddParameter(preCheckCmd, "@studentId", studentId);
+
+                    var exists = await preCheckCmd.ExecuteScalarAsync(cancellationToken);
+                    if (exists != null && exists is not DBNull)
+                    {
+                        await tx.RollbackAsync(cancellationToken);
+                        throw new ConflictException(
+                            "ALREADY_APPLIED_IN_CLASS",
+                            "Student already has an active or confirmed application for this class."
+                        );
+                    }
+                }
+
+                // Step 4: Conditional seat UPDATE (atomic seat acquisition)
+                await using (var seatUpdateCmd = connection.CreateCommand())
+                {
+                    seatUpdateCmd.Transaction = tx;
+                    seatUpdateCmd.CommandText = @"
+                        UPDATE classes
+                        SET held_seats = held_seats + 1
+                        WHERE id = @id AND (held_seats + confirmed_seats) < total_seats;
+                    ";
+                    AddParameter(seatUpdateCmd, "@id", classId);
+
+                    var rowsAffected = await seatUpdateCmd.ExecuteNonQueryAsync(cancellationToken);
+                    if (rowsAffected == 0)
+                    {
+                        await tx.RollbackAsync(cancellationToken);
+                        throw new ConflictException("NO_SEATS_AVAILABLE", "No seats available in this class.");
+                    }
+                }
+
+                // Step 5: INSERT the reservation record
+                // On SQLSTATE 23505 (unique index race on class_id, student_id), roll back and return ALREADY_APPLIED_IN_CLASS (never a 500).
+                string holdId;
+                string createdAt;
+                string expiresAt;
+                string serverTime;
+
+                await using (var insertCmd = connection.CreateCommand())
+                {
+                    insertCmd.Transaction = tx;
+                    insertCmd.CommandText = @"
+                        INSERT INTO reservations (
+                            id, class_id, student_id, status, created_at, expires_at
+                        )
+                        SELECT 
+                            gen_random_uuid(),
+                            @id,
+                            @studentId,
+                            'HELD',
+                            ts,
+                            ts + make_interval(secs => @holdDurationSeconds)
+                        FROM (SELECT date_trunc('second', clock_timestamp()) AS ts) t
+                        RETURNING id, created_at, expires_at, date_trunc('second', clock_timestamp()) AS server_time;
+                    ";
+                    AddParameter(insertCmd, "@id", classId);
+                    AddParameter(insertCmd, "@studentId", studentId);
+                    AddParameter(insertCmd, "@holdDurationSeconds", holdDurationSeconds);
+
+                    try
+                    {
+                        await using var reader = await insertCmd.ExecuteReaderAsync(cancellationToken);
+                        if (!await reader.ReadAsync(cancellationToken))
+                        {
+                            throw new InvalidOperationException("Failed to insert reservation record.");
+                        }
+
+                        holdId = reader.GetGuid(0).ToString();
+                        createdAt = reader.GetFieldValue<DateTimeOffset>(1).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+                        expiresAt = reader.GetFieldValue<DateTimeOffset>(2).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+                        serverTime = reader.GetFieldValue<DateTimeOffset>(3).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+                    }
+                    catch (PostgresException ex) when (ex.SqlState == "23505")
+                    {
+                        await tx.RollbackAsync(cancellationToken);
+                        throw new ConflictException(
+                            "ALREADY_APPLIED_IN_CLASS",
+                            "Student already has an active or confirmed application for this class."
+                        );
+                    }
+                }
+
+                // Step 6: Commit transaction and return 201 response
+                await tx.CommitAsync(cancellationToken);
+
+                return new HoldResponse(
+                    HoldId: holdId,
+                    ClassId: classId.ToString(),
+                    StudentId: studentId,
+                    Status: "HELD",
+                    ExpiresAt: expiresAt,
+                    ClassName: className,
+                    CreatedAt: createdAt,
+                    ServerTime: serverTime
+                );
             }
+            catch (PostgresException ex) when (ex.SqlState == "40P01" || ex.SqlState == "40001")
+            {
+                try { await tx.RollbackAsync(cancellationToken); } catch { /* ignore */ }
 
-            // Step 6: Commit transaction and return 201 response
-            await tx.CommitAsync(cancellationToken);
+                if (attempt < maxAttempts)
+                {
+                    _logger?.LogWarning("Postgres transient failure ({SqlState}) during create-hold for student {StudentId}. Retrying transaction once.", ex.SqlState, studentId);
+                    await Task.Delay(Random.Shared.Next(10, 40), cancellationToken);
+                    continue;
+                }
 
-            return new HoldResponse(
-                HoldId: holdId,
-                ClassId: classId.ToString(),
-                StudentId: studentId,
-                Status: "HELD",
-                ExpiresAt: expiresAt,
-                ClassName: className,
-                CreatedAt: createdAt,
-                ServerTime: serverTime
-            );
+                _logger?.LogError(ex, "Postgres deadlock or serialization failure ({SqlState}) after retry during create-hold for student {StudentId}.", ex.SqlState, studentId);
+                throw new InternalErrorException("A database deadlock or serialization error occurred. Please try again.");
+            }
+            catch
+            {
+                try { await tx.RollbackAsync(cancellationToken); } catch { /* ignore */ }
+                throw;
+            }
         }
-        catch
-        {
-            try { await tx.RollbackAsync(cancellationToken); } catch { /* ignore */ }
-            throw;
-        }
+
+        throw new InternalErrorException("Unexpected failure executing create-hold transaction.");
     }
+
 
     public async Task<HoldDetailsResponse?> GetHoldByIdAsync(Guid holdId, CancellationToken cancellationToken = default)
     {

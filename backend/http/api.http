@@ -192,8 +192,14 @@ POST {{baseUrl}}/classes/not-a-valid-uuid/holds
 X-Student-Id: 20081234567890123
 Accept: application/json
 
-### A4: Create Hold - Already Applied in Class (409 ALREADY_APPLIED_IN_CLASS)
+### A4: Create Hold - Already Applied in Same Class (409 ALREADY_APPLIED_IN_CLASS)
 POST {{baseUrl}}/classes/{{sampleClassId}}/holds
+X-Student-Id: 20081234567890123
+Accept: application/json
+
+### A4: Create Hold - Same Student Can Apply to Different Class (201 Created)
+# A student is permitted to hold active applications in DIFFERENT classes simultaneously
+POST {{baseUrl}}/classes/{{otherClassId}}/holds
 X-Student-Id: 20081234567890123
 Accept: application/json
 
