@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { RootLayout } from './layouts/RootLayout';
 import { StudentLayout } from './layouts/StudentLayout';
 import { AdminLayout } from './layouts/AdminLayout';
+import { RootErrorBoundary } from '../shared/components';
 
 // Student feature placeholders
 import {
@@ -26,6 +27,7 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <RootLayout />,
+    errorElement: <RootErrorBoundary />,
     children: [
       // Student portal layout
       {
