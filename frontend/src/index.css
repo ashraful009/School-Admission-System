@@ -1,111 +1,121 @@
-:root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --bg: #fff;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+@import "@fontsource/poppins/400.css";
+@import "@fontsource/poppins/500.css";
+@import "@fontsource/poppins/600.css";
+@import "@fontsource/poppins/700.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+@import "tailwindcss";
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@theme {
+  --color-bg-base: #EEEAF6;
+  --color-surface-from: #F7F4FC;
+  --color-surface-to: #E8E3F3;
+  --color-ink: #241A3F;
+  --color-muted: #7A7396;
+  --color-primary: #4B22A6;
+  --color-primary-highlight: #6B3FD4;
+  --color-primary-grad-from: #683DD0;
+  --color-primary-grad-to: #4C23A8;
+  --color-light-purple: #E4DBF7;
 
-  @media (max-width: 1024px) {
-    font-size: 16px;
+  /* Pill colors from 11.4 */
+  --color-pill-held-bg: #E4DBF7;
+  --color-pill-held-text: #4B22A6;
+  --color-pill-confirmed-bg: #D9F0E3;
+  --color-pill-confirmed-text: #1D7A4A;
+  --color-pill-expired-bg: #E3E0EA;
+  --color-pill-expired-text: #6E6885;
+  --color-pill-cancelled-bg: #F6DDE4;
+  --color-pill-cancelled-text: #B03A5B;
+
+  /* Fonts */
+  --font-heading: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+@layer base {
+  body {
+    background-color: #EEEAF6;
+    color: #241A3F;
+    font-family: var(--font-body);
+    margin: 0;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    color: #241A3F;
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+@layer utilities {
+  /* Neumorphic raised card (section 11.4: box-shadow: 9px 9px 20px #cfc8e2, -9px -9px 20px #fff; border-radius: 26px) */
+  .neu-card {
+    background: linear-gradient(135deg, #F7F4FC 0%, #E8E3F3 100%);
+    box-shadow: 9px 9px 20px #cfc8e2, -9px -9px 20px #ffffff;
+    border-radius: 26px;
   }
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
+  /* Inset styling (section 11.4: inset 5px 5px 10px #d3cde5, inset -5px -5px 10px #fff; radius 16px) */
+  .neu-inset {
+    background-color: #EEEAF6;
+    box-shadow: inset 5px 5px 10px #d3cde5, inset -5px -5px 10px #ffffff;
+    border-radius: 16px;
   }
-}
 
-#root {
-  width: 1126px;
-  max-width: 100%;
-  margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-}
-
-body {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--heading);
-  font-weight: 500;
-  color: var(--text-h);
-}
-
-h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 32px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
+  /* Raised small (for badges, chips, subcards) */
+  .neu-raised-sm {
+    background: linear-gradient(135deg, #F7F4FC 0%, #E8E3F3 100%);
+    box-shadow: 4px 4px 10px #cfc8e2, -4px -4px 10px #ffffff;
+    border-radius: 16px;
   }
-}
-h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
+
+  /* Primary button (section 11.4: purple gradient, radius 16px) */
+  .neu-btn-primary {
+    background: linear-gradient(135deg, #683DD0 0%, #4C23A8 100%);
+    box-shadow: 4px 4px 12px rgba(75, 34, 166, 0.35);
+    border-radius: 16px;
+    color: #ffffff;
+    font-family: var(--font-heading);
+    font-weight: 600;
   }
-}
-p {
-  margin: 0;
-}
+  .neu-btn-primary:hover:not(:disabled) {
+    box-shadow: 6px 6px 16px rgba(75, 34, 166, 0.45);
+    transform: translateY(-1px);
+  }
+  .neu-btn-primary:active:not(:disabled) {
+    box-shadow: 2px 2px 6px rgba(75, 34, 166, 0.35);
+    transform: translateY(0);
+  }
 
-code,
-.counter {
-  font-family: var(--mono);
-  display: inline-flex;
-  border-radius: 4px;
-  color: var(--text-h);
-}
+  /* Secondary button (section 11.4: flat surface with small raised shadow) */
+  .neu-btn-secondary {
+    background: linear-gradient(135deg, #F7F4FC 0%, #E8E3F3 100%);
+    box-shadow: 4px 4px 10px #cfc8e2, -4px -4px 10px #ffffff;
+    border-radius: 16px;
+    color: #241A3F;
+    font-family: var(--font-heading);
+    font-weight: 500;
+  }
+  .neu-btn-secondary:hover:not(:disabled) {
+    box-shadow: 6px 6px 14px #cfc8e2, -6px -6px 14px #ffffff;
+    transform: translateY(-1px);
+  }
+  .neu-btn-secondary:active:not(:disabled) {
+    box-shadow: inset 2px 2px 5px #d3cde5, inset -2px -2px 5px #ffffff;
+    transform: translateY(0);
+  }
 
-code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
-  background: var(--code-bg);
+  /* Disabled button (section 11.4: bg #E1DCEC, text #A59FBA, no shadow) */
+  .neu-btn-disabled {
+    background: #E1DCEC !important;
+    color: #A59FBA !important;
+    box-shadow: none !important;
+    border-radius: 16px;
+    cursor: not-allowed;
+  }
 }
